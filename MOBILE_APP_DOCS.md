@@ -1,661 +1,795 @@
-# Pracby — Mobile App Geliştirme Dökümantasyonu
+# Pracby — Mobil Uygulama Geliştirme Dökümantasyonu
 
-> Bu doküman, Pracby platformunun backend API'lerini, veri modellerini, iş akışlarını ve mobile app geliştirirken ihtiyaç duyulacak teknik bilgileri kapsar.
-> Son güncelleme: 14 Ekim 2026 — `src/` altındaki backend kodu ve web istemcisi (`client/`) baz alınmıştır.
+> Bu doküman Pracby mobil uygulamasının (Flutter) nasıl çalışması gerektiğini anlatır. Backend API'leri, veri modelleri, misafir modu, oyun mekanikleri ve ekran akışları buradadır.
+> Son güncelleme: **15 Ekim 2026**. Backend (`pracby/src/`) ve web istemcisi (`pracby/client/`) `main` dalındaki `2fa54ab` commit'i baz alınarak koddan doğrulanmıştır.
+> Web istemcisi ürünün referans uygulamasıdır. Mobil uygulama, aksi belirtilmedikçe web ile aynı davranmalıdır.
+
+### İçindekiler
+1. Genel Mimari
+2. Mobil Uygulama Mimarisi (Flutter)
+3. Kimlik Doğrulama — `/api/auth`
+4. Sınav Grupları — `/api/exam-groups`
+5. Modüller — `/api/modules`
+6. Dersler ve Ders Haritası — `/api/courses`
+7. Quiz Sistemi — `/api/quiz`
+8. Soru Gösterimi (Render Kuralları)
+9. Soru Bildirimi (Hatalı Soru)
+10. **Misafir Modu**
+11. Kullanıcı Profili — `/api/users`
+12. Mağaza — `/api/store`
+13. Liderlik Tablosu — `/api/leaderboard`
+14. Arkadaşlık — `/api/friends`
+15. Bildirimler — `/api/notifications`
+16. Oyun Mekanikleri (Enerji, Palamut, XP, Seri, Başarımlar)
+17. Veri Tipleri
+18. Hata Formatı ve Kodları
+19. Bilinen Kısıtlar ve Backend Hataları
+20. Güvenlik ve Teknik Notlar
+21. Admin API'leri (Referans)
+22. Geliştirme Sırası ve Mevcut Durum
 
 ---
 
 ## 1. Genel Mimari
 
 ```
-Mobile App
+Mobil Uygulama (Flutter)
     │
     ▼
-REST API (Express.js — Node.js)
-Base URL: /api
+REST API (Express 5 — Node.js)            Statik dosyalar (Nuxt web sunucusu)
+Base URL: https://<domain>/api            https://<domain>/QuestionsImage/...
     │
-    ├── /auth          → Kimlik Doğrulama
-    ├── /exam-groups   → Sınav Grupları
-    ├── /modules       → Modüller (Oturumlar)
-    ├── /courses       → Dersler
-    ├── /quiz          → Quiz Sistemi
-    ├── /users         → Kullanıcı Profili
-    ├── /leaderboard   → Liderlik Tablosu
+    ├── /auth          → Kimlik doğrulama
+    ├── /exam-groups   → Sınav grupları
+    ├── /modules       → Modüller (Genel Yetenek / Genel Kültür)
+    ├── /courses       → Dersler, konular, adımlar
+    ├── /quiz          → Quiz, ödül, soru bildirimi
+    ├── /users         → Profil, istatistik, sınav kayıtları
+    ├── /leaderboard   → Liderlik tablosu
     ├── /store         → Mağaza
     ├── /friends       → Arkadaşlık
-    ├── /notifications → Bildirimler
-    └── /admin         → Yönetim (mobil için gerekli değil)
+    ├── /notifications → Uygulama içi bildirimler
+    └── /admin         → Yönetim (mobilde kullanılmaz)
     │
     ▼
-PostgreSQL (Knex.js)
+PostgreSQL (Knex)
 ```
 
-### Auth Yöntemi
-- **JWT Token** (Bearer token, 7 gün geçerli, payload: `{ userId, username }`)
-- Header: `Authorization: Bearer <token>`
-- Refresh token mekanizması yok — `401` alındığında kullanıcı yeniden giriş yapmalı.
-- Rate limit: `/api/auth/*` endpointlerine IP başına dakikada maksimum 10 istek.
+> Soru görselleri API'den **değil**, web sunucusundan servis edilir (bkz. 8.3).
 
-### Erişim Seviyeleri
+### 1.1 Erişim Seviyeleri
+
 | Seviye | Açıklama | Endpointler |
 |--------|----------|-------------|
-| Public | Token gerekmez | `/auth/*` (merge hariç), `/exam-groups`, `/quiz/guest-start`, `/health` |
-| Optional | Token varsa kullanıcıya özel veri eklenir | `/modules`, `/courses`, `/store/items` |
-| Auth | Token zorunlu | Diğer tüm endpointler |
+| **Public** | Token gerekmez | `/health`, `/auth/*` (merge hariç), `/exam-groups`, `/quiz/guest-start`, `/quiz/guest-report-question` |
+| **Opsiyonel** | Token varsa kullanıcıya özel veri (ilerleme) eklenir, yoksa misafir kabul edilir | `/modules/*`, `/courses/*`, `/store/items` |
+| **Auth** | `Authorization: Bearer <token>` zorunlu | Diğer tüm endpointler |
 
----
+> Opsiyonel endpointlerde **geçersiz veya süresi dolmuş** bir token hata vermez, istek sessizce misafir olarak işlenir. Bu yüzden 401 almadan "ilerleme gelmedi" durumu oluşabilir. Token süresini `/users/me` ile kontrol edin (bkz. 3.8).
 
-## 2. Sağlık Kontrolü
+### 1.2 Rate Limit
+
+| Kapsam | Limit | 429 Yanıtı |
+|--------|-------|------------|
+| `/api/auth/*` (**`check-email` ve `check-username` dahil**) | IP başına dakikada 10 | `{ "error": "Too many requests, please try again later" }` |
+| `POST /api/quiz/guest-report-question` | IP başına günde 20 | `{ "error": "Too many reports, please try again later" }` |
+
+Yanıtlarda `RateLimit-*` başlıkları döner. Kayıt formunda e-posta/kullanıcı adı kontrolü **debounce** edilmelidir (ör. 500 ms), aksi halde yazarken limite takılınır.
+
+### 1.3 Sağlık Kontrolü
 
 ```
 GET /api/health
 ```
+- `200` → `{ "status": "ok", "timestamp": "2026-10-15T10:00:00.000Z" }`
+- `503` → `{ "status": "unhealthy", "timestamp": "..." }` (veritabanı bağlantısı yok)
 
-**Response (200):**
-```json
-{ "status": "ok", "timestamp": "2026-10-14T10:00:00.000Z" }
-```
+---
 
-**Response (503 — DB bağlantısı yok):**
-```json
-{ "status": "unhealthy", "timestamp": "2026-10-14T10:00:00.000Z" }
-```
+## 2. Mobil Uygulama Mimarisi (Flutter)
+
+Mevcut proje (`pracby_mobile`) aşağıdaki yapıyı kullanır. Yeni kod bu yapıya uymalıdır.
+
+| Katman | Paket | Kullanım |
+|--------|-------|----------|
+| State | `flutter_riverpod`, `riverpod_annotation` | Provider'lar `features/*/presentation/providers` altında |
+| Routing | `go_router` | Rotalar `core/router/routes.dart`, yönlendirme kuralları `app_router.dart` |
+| HTTP | `dio` | `core/api/api_client.dart`; endpoint sabitleri `core/api/endpoints.dart` |
+| Token | `flutter_secure_storage` | `core/storage/secure_storage.dart` (Keychain / Keystore) |
+| Yerel veri | `hive_flutter` | `core/storage/hive_storage.dart`; misafir durumu ve offline quiz kuyruğu burada |
+| Model | `freezed`, `json_serializable` | `features/*/data/models` |
+| HTML | `flutter_html` | `core/widgets/html_text.dart` (bkz. Bölüm 8) |
+| Görsel | `cached_network_image` | Soru görselleri |
+| Bağlantı | `connectivity_plus` | Online olunca offline kuyruğu gönderme |
+
+**Klasör yapısı:** `lib/features/<özellik>/{data, domain, presentation}`. Özellikler şunlardır: `auth`, `onboarding`, `home`, `quiz`, `profile`, `store`, `leaderboard`, `friends`, `notifications`. Misafir modu için ayrı bir `features/guest` modülü önerilir (bkz. 10.10).
+
+**API istemcisi kuralları:**
+- Token varsa her isteğe `Authorization: Bearer <token>` eklenir.
+- **Auth** endpointinden `401` gelirse token silinir ve uygulama misafir moduna döner. Misafir verisi yoksa giriş ekranı açılır. Web istemcisi de 401'de token'ı silip girişe yönlendirir.
+- Hata gövdesi iki farklı formatta gelebilir: `{ error }` ya da Zod'un `{ errors }` formatı. Bkz. Bölüm 18.
 
 ---
 
 ## 3. Kimlik Doğrulama — `/api/auth`
 
-### 3.1 Kayıt
+### 3.1 Token
+- **JWT**, HS256, payload `{ userId, username }`, **7 gün** geçerli.
+- Refresh token, logout ve token iptali **yoktur**. Süre dolunca `401` döner ve kullanıcı yeniden giriş yapar.
+- Token yalnızca `flutter_secure_storage` içinde saklanır.
+
+### 3.2 Kayıt
 
 ```
-POST /api/auth/register
+POST /api/auth/register          (public, 201)
 ```
 
 **Request Body:**
 ```typescript
 {
   email: string;                  // Geçerli e-posta
-  username: string;               // 3-20 karakter; küçük harf, rakam, "." ve "_"
-                                  // Harf/rakam ile başlayıp bitmeli, ".." / "__" / "._" olamaz
+  username: string;               // 3-20 karakter, regex: ^[a-z0-9](?!.*[._]{2})[a-z0-9._]{1,18}[a-z0-9]$
+                                  // Küçük harf, rakam, "." ve "_"; harf/rakam ile başlayıp biter; ".." "__" "._" olamaz
   password: string;               // Min 6 karakter
-  exam_type_id?: string;          // UUID — verilmezse "lisans" (KPSS Lisans) atanır
-  acorn_balance?: number;         // Başlangıç acorn — default: 500
-  energy?: number;                // 0-25 — default: 25
-  guest_data?: {                  // Misafir ilerlemesini hesaba aktar
+  exam_type_id?: string;          // UUID — verilmezse "lisans" (KPSS Lisans) atanır. Boş string GÖNDERMEYİN (400 olur)
+  acorn_balance?: number;         // int >= 0 — verilmezse 500
+  energy?: number;                // int 0-25 — verilmezse 25
+  guest_data?: {                  // Misafir ilerlemesini hesaba aktarır (bkz. 10.8)
     quiz_results?: Array<{
       topicId: string;
       stepId?: string;
       testId?: string;
-      correctCount: number;
-      totalQuestions: number;
+      correctCount: number;       // int >= 0
+      totalQuestions: number;     // int >= 0
     }>;
     claimed_reward_step_ids?: string[];
   };
 }
 ```
 
-> Misafir modunda biriken acorn/enerji, kayıtta `acorn_balance` ve `energy` alanlarıyla gönderilir (web istemcisi böyle yapıyor).
-
 **Response (201):**
 ```typescript
 {
-  user: {
-    id: string;             // UUID
-    email: string;
-    username: string;
-    active_exam_type_id: string | null;
-    created_at: string;     // ISO 8601
-  };
-  token: string;            // JWT
-}
-```
-
-**İş Kuralları:**
-- Kayıt tek bir transaction içinde yapılır; `user_stats` satırı ve seçilen sınava `enrollment` otomatik oluşturulur.
-- `guest_data` içindeki **tüm** `stepId`'ler veritabanında mevcut olmalıdır. Biri bile geçersizse misafir verisinin tamamı yok sayılır (kayıt yine başarılı olur, ilerleme aktarılmaz).
-- Aktarılan her quiz sonucu için `correctCount` kadar XP eklenir.
-
-**Hata Kodları:**
-- `400` — Validasyon hatası
-- `409` — `Email already in use` / `Username already taken`
-- `500` — Varsayılan rol bulunamadı (RBAC seed çalıştırılmamış)
-
----
-
-### 3.2 Giriş
-
-```
-POST /api/auth/login
-```
-
-**Request Body:**
-```typescript
-{
-  identifier: string;   // Email veya kullanıcı adı ("@" içeriyorsa email kabul edilir)
-  password: string;
-}
-```
-
-**Response (200):**
-```typescript
-{
-  user: {
-    id: string;
-    email: string;
-    username: string;
-    role: string | null;        // "student" | "teacher" | "admin"
-    permissions: string[];
-  };
+  user: { id: string; email: string; username: string; active_exam_type_id: string | null; created_at: string };
   token: string;
 }
 ```
+> Kayıt yanıtında `role` ve `permissions` **yoktur**. Kayıttan sonra `GET /api/users/me` çağrılmalıdır.
 
-> **Not:** Login yanıtında `active_exam_type_id`, enerji ve acorn bilgisi **yoktur**. Girişten hemen sonra `GET /api/users/me` çağrılmalıdır.
+**İş Kuralları:**
+- Kayıt tek transaction'da yapılır. Kullanıcıya `student` rolü verilir. `user_stats` satırı ve seçilen sınava ait `enrollment` otomatik oluşturulur.
+- Misafir verisinin aktarımı Bölüm 10.8'de anlatılmıştır.
 
-**Hata Kodları:**
-- `401` — `Invalid credentials`
+**Hata Kodları:** `400` validasyon · `409` `Email already in use` / `Username already taken` · `500` rol seed'i eksik
 
----
-
-### 3.3 Email / Kullanıcı Adı Kontrolü
+### 3.3 Giriş
 
 ```
-GET /api/auth/check-email?email=test@mail.com
-GET /api/auth/check-username?username=john123
+POST /api/auth/login             (public, 200)
+Body: { identifier: string; password: string }    // identifier "@" içeriyorsa e-posta, değilse kullanıcı adı
 ```
 
 **Response:**
-```json
-{ "available": true }
+```typescript
+{
+  user: { id: string; email: string; username: string; role: string | null; permissions: string[] };
+  token: string;
+}
 ```
+> Login yanıtında `active_exam_type_id`, enerji ve palamut **yoktur**. Girişten hemen sonra `GET /api/users/me` çağrılmalıdır.
+> Cihazda misafir ilerlemesi varsa girişten sonra `merge-guest-progress` çağrılır (bkz. 10.9).
 
-**Hata Kodları:**
-- `400` — Parametre eksik (`email required` / `username required`)
+**Hata Kodları:** `401` `Invalid credentials`
 
----
-
-### 3.4 Şifre Sıfırlama
+### 3.4 E-posta / Kullanıcı Adı Uygunluğu
 
 ```
-POST /api/auth/forgot-password
-Body: { "email": "user@mail.com" }
+GET /api/auth/check-email?email=test@mail.com       → { "available": boolean }
+GET /api/auth/check-username?username=john123       → { "available": boolean }
 ```
+- Parametre eksikse `400` (`email required` / `username required`) döner.
+- `check-username` yalnızca kullanıcı adının var olup olmadığına bakar, **format kontrolü yapmaz**. Regex kontrolünü istemci yapmalıdır.
+- Bu endpointler auth rate limit'ine dahildir. Debounce kullanın (1.2).
 
-**Response (200):** Kullanıcı var olsun ya da olmasın aynı yanıt döner (enumeration koruması).
-```json
-{ "message": "Eğer bu e-posta kayıtlıysa, şifre sıfırlama bağlantısı gönderildi." }
+### 3.5 Şifre Sıfırlama
+
 ```
-
-- E-posta Resend üzerinden gönderilir. Link formatı: `{APP_URL}/auth/reset-password?token=<64 karakter hex>`
+POST /api/auth/forgot-password    Body: { "email": "user@mail.com" }
+```
+- Kullanıcı olsa da olmasa da aynı yanıt döner: `200 { "message": "Eğer bu e-posta kayıtlıysa, şifre sıfırlama bağlantısı gönderildi." }`
+- E-posta Resend ile gönderilir. Link: `{APP_URL}/auth/reset-password?token=<64 karakter hex>`
 - Token **1 saat** geçerlidir ve tek kullanımlıktır. Yeni talep, önceki kullanılmamış tokenları iptal eder.
-- Link web uygulamasına gider. Mobilde açmak için bu URL için **universal link / app link** tanımlanmalı (`/auth/reset-password` yolu yakalanıp `token` query parametresi okunmalı).
+- Link web sayfasını açar. Mobilde yakalamak için `/auth/reset-password` yoluna **universal link (iOS) / app link (Android)** tanımlanmalı ve `token` query parametresi okunmalıdır. Rota: `Routes.resetPassword`.
 
 ```
-POST /api/auth/reset-password
-Body: { "token": "<64 char hex token>", "password": "newpassword" }
+POST /api/auth/reset-password     Body: { "token": "<64 hex>", "password": "yeniSifre" }
 ```
+- `200 { "message": "Şifren başarıyla güncellendi." }`
+- `400` `Geçersiz veya süresi dolmuş bağlantı`. Token 64 karakter değilse `Geçersiz token`, şifre kısaysa `Şifre en az 6 karakter olmalıdır` döner.
 
-**Response (200):**
-```json
-{ "message": "Şifren başarıyla güncellendi." }
-```
-
-**Hata Kodları:**
-- `400` — `Geçersiz veya süresi dolmuş bağlantı` ya da validasyon hatası
-
----
-
-### 3.5 Misafir İlerlemesi Birleştirme (Auth Gerekli)
-
-Zaten hesabı olan bir kullanıcı misafir olarak çözdüğü testlerden sonra **giriş yaptığında** kullanılır (kayıtta ise `guest_data` kullanılır).
+### 3.6 Misafir İlerlemesini Birleştirme (Auth)
 
 ```
 POST /api/auth/merge-guest-progress
 Authorization: Bearer <token>
 ```
-
-**Request Body:**
 ```typescript
 {
-  quiz_results?: Array<{        // default: []
-    topicId: string;
-    stepId?: string;
-    testId?: string;
-    correctCount: number;
-    totalQuestions: number;
-  }>;
-  claimed_rewards?: string[];   // Açılan ödül adımlarının step ID listesi — default: []
-  earned_acorns?: number;       // Misafirken kazanılan acorn — default: 0
+  quiz_results?: GuestQuizResult[];   // default []
+  claimed_rewards?: string[];         // Açılan sandıkların step ID'leri — default []
+  earned_acorns?: number;             // int >= 0 — misafirken kazanılan net palamut — default 0
 }
 ```
+**Response:** Aktarılacak bir şey yoksa `{ merged: false }`, aktarım yapıldıysa `{ merged: true, xp_awarded: number, acorns_awarded: number }`. Kurallar Bölüm 10.9'dadır.
 
-**Response (200):**
-```typescript
-{ merged: false }   // Aktarılacak bir şey yoksa
-// veya
-{ merged: true; xp_awarded: number; acorns_awarded: number }
+### 3.7 Olmayanlar
+E-posta doğrulama, Google/Apple ile giriş, token yenileme, logout endpoint'i ve hesap silme **yoktur**. Logout istemci tarafında yapılır: token silinir.
+
+### 3.8 Uygulama Açılış (Splash) Mantığı
 ```
-
-**İş Kuralları:**
-- Bir `stepId` bile geçersizse adım ilerlemesi ve ödüller aktarılmaz; `earned_acorns` yine de eklenir.
-- Mevcut ilerlemeden daha ileride olmayan adımlar için XP verilmez (çift sayım önlenir).
+1. Secure storage'da token var mı?
+   ├─ Var  → GET /api/users/me
+   │         ├─ 200 → Kayıtlı kullanıcı. Bekleyen offline quiz'ler varsa gönder → Ana sayfa
+   │         └─ 401 → Token'ı sil, 2. adıma geç
+   └─ Yok  → 2. adım
+2. Misafir durumunda (Hive) examTypeId var mı?
+   ├─ Var  → Misafir olarak ana sayfa
+   └─ Yok  → Hoş geldin / sınav seçimi ekranı
+```
 
 ---
 
 ## 4. Sınav Grupları — `/api/exam-groups`
 
 ```
-GET /api/exam-groups
+GET /api/exam-groups             (public)
 ```
-
-**Response:**
 ```typescript
 Array<{
-  id: string;
-  name: string;       // "KPSS", "YKS"
-  slug: string;       // "kpss", "yks"
-  description: string;
-  sort_order: number;
-  is_active: boolean;
-  exam_types: Array<{
-    id: string;
-    exam_group_id: string;
-    name: string;     // "KPSS Lisans", "KPSS Önlisans", "KPSS Ortaöğretim"
-    slug: string;     // "lisans", "onlisans", "ortaogretim"
-    description: string;
-    sort_order: number;
-    is_active: boolean;
-  }>;
+  id: string; name: string; slug: string; description: string; sort_order: number; is_active: boolean;
+  exam_types: Array<{ id: string; exam_group_id: string; name: string; slug: string; description: string; sort_order: number; is_active: boolean }>;
 }>
 ```
-
-**Notlar:**
-- Aktif/pasif **tüm** gruplar döner; pasif gruplar UI'da "Çok Yakında" olarak gösterilmelidir.
-- Pasif grupların `exam_types` dizisi her zaman **boştur** (kayıt olunamaz).
-- Güncel durum: **KPSS aktif** (Lisans, Önlisans, Ortaöğretim). **YKS pasif** (TYT, AYT, YDT).
+- Aktif ve pasif **tüm** gruplar `sort_order` sırasıyla döner. Pasif gruplar "Çok Yakında" olarak gösterilir ve seçilemez.
+- Pasif grupların `exam_types` dizisi her zaman boştur. Aktif gruplarda yalnızca aktif türler döner.
+- Bir grubun **tek** türü varsa web istemcisi o türü otomatik seçer.
+- Güncel durum: **KPSS aktif** (Lisans, Önlisans, Ortaöğretim). **YKS pasif.**
+- Kayıtlı `examTypeId` artık listede yoksa (tür kaldırılmış/pasif), misafir için seçim temizlenip sınav seçimine dönülmelidir. Web istemcisi böyle yapar.
 
 ---
 
-## 5. Modüller (Oturumlar) — `/api/modules`
+## 5. Modüller — `/api/modules`
 
 ```
-GET /api/modules?exam_type_id=<uuid>
-GET /api/modules/:id
+GET /api/modules?exam_type_id=<uuid>      (opsiyonel auth) — exam_type_id zorunlu, yoksa 400
+GET /api/modules/:id                      → modül + courses[]  (404 "Module not found")
 ```
-
-- `exam_type_id` zorunludur (yoksa `400`). Sadece `is_active: true` modüller döner.
-- KPSS türlerinin her biri için iki modül vardır: **Genel Yetenek** (🧠) ve **Genel Kültür** (📚).
-
-**Response (Liste):**
 ```typescript
-Array<{
-  id: string;
-  exam_type_id: string;
-  name: string;           // "Genel Yetenek", "Genel Kültür"
-  description: string;
-  icon_url: string;       // Emoji (ör. "🧠")
-  sort_order: number;
-  is_active: boolean;
-  created_at: string;
-}>
+Array<{ id: string; exam_type_id: string; name: string; description: string; icon_url: string; sort_order: number; is_active: boolean; created_at: string }>
 ```
-
-**Response (Detay):** Modül alanları + `courses: Course[]`
+- Yalnızca aktif modüller döner. KPSS türlerinde iki modül vardır: **Genel Yetenek** (🧠) ve **Genel Kültür** (📚). `icon_url` bir emojidir.
+- Seçilen modül ve ders cihazda hatırlanır. Web istemcisi bunları `pb_selectedModuleId` ve `pb_selectedCourseId` anahtarlarında saklar.
 
 ---
 
-## 6. Dersler — `/api/courses`
+## 6. Dersler ve Ders Haritası — `/api/courses`
 
-Misafir kullanıcılar da bu endpointlere erişebilir (opsiyonel auth).
+Tüm endpointler **opsiyonel auth** kullanır, misafirler de erişebilir.
 
 ### 6.1 Ders Listesi
-
 ```
 GET /api/courses?module_id=<uuid>
 GET /api/courses?exam_type_id=<uuid>
 ```
-
 - `module_id` verilirse `exam_type_id` yok sayılır. İkisi de verilmezse tüm dersler döner.
-
-**Response:**
 ```typescript
-Array<{
-  id: string;
-  name: string;         // "Türkçe", "Matematik", "Tarih", "Coğrafya", "Vatandaşlık" ...
-  description: string;
-  icon_url: string;     // Emoji (ör. "📝")
-  color: string;        // Hex renk kodu (ör. "#3b82f6")
-  sort_order: number;
-  exam_type_id: string | null;
-  module_id: string | null;
-}>
+Array<{ id: string; name: string; description: string; icon_url: string; color: string; sort_order: number; exam_type_id: string | null; module_id: string | null }>
 ```
 
-### 6.2 Ders Detayı
-
+### 6.2 Ders Detayı ve Konular
 ```
-GET /api/courses/:id
-```
-
-**Hata Kodları:** `404` — `Course not found`
-
-### 6.3 Dersin Konuları
-
-```
-GET /api/courses/:id/topics
+GET /api/courses/:id              → Course  (404 "Course not found")
+GET /api/courses/:id/topics       → Topic[] (yalnızca status "approved", sort_order sıralı)
 ```
 
-**Response:** `Array<Topic>` — sadece `status: "approved"` konular, `sort_order` sıralı.
-
-### 6.4 Tam Ders Detayı (İlerleme Dahil) — Ana Ekran İçin
-
+### 6.3 Tam Ders (Ders Haritası İçin)
 ```
-GET /api/courses/:id/full
-Authorization: Bearer <token>  (opsiyonel — varsa ilerleme eklenir)
+GET /api/courses/:id/full         (token varsa ilerleme eklenir)
 ```
-
-**Response:**
 ```typescript
 {
-  // ...Course alanları
+  ...Course,
   topics: Array<{
-    id: string;
-    course_id: string;
-    name: string;
-    description: string;
-    icon_url: string;
-    sort_order: number;
-    total_lessons: number;
-    max_crown_level: number;
-    unlock_after: string | null;
-    status: "approved";
-    created_by: string | null;
+    ...Topic,
+    progress: UserTopicProgress | null;      // Pratikte her zaman null (backend bu tabloya yazmıyor)
     steps: Array<{
-      id: string;
-      topic_id: string;
-      name: string;                 // Seed içerikte boş string
-      description: string;
-      sort_order: number;
-      tests_required: number;       // lesson: 1, reward: 0
+      id: string; topic_id: string; name: string; description: string; sort_order: number;
+      tests_required: number;                // lesson: 1, reward: 0
       step_type: "lesson" | "reward";
       reward_type: "acorn" | "store_item" | null;
-      reward_amount: number | null; // Seed içerikte reward adımları 10 acorn
+      reward_amount: number | null;          // İçerikte sandıklar 10 palamut
       reward_item_id: string | null;
-      created_at: string;
-      updated_at: string;
-      progress: UserStepProgress | null;  // null = kullanıcı başlamamış / misafir
+      created_at: string; updated_at: string;
+      progress: UserStepProgress | null;     // null = başlanmamış veya misafir
     }>;
-    progress: UserTopicProgress | null;   // Şu an her zaman null (bkz. Bölüm 17)
   }>;
 }
 ```
+> Misafirde `progress` alanları her zaman `null` gelir. İlerleme cihazdaki misafir verisiyle doldurulur (bkz. 10.6).
 
-**Kilit (unlock) Mantığı:** Backend adım/konu kilidini **zorlamaz**. Web istemcisi bir adımı, önceki adım `progress.is_step_completed === true` ise açık gösterir. Mobil istemci de aynı mantığı client-side uygulamalıdır. Misafir kullanıcılar için ilerleme cihazda tutulan `quiz_results` / `claimed_reward_step_ids` verisiyle overlay edilir.
+### 6.4 Düğüm (Node) Durumları — Ders Haritası
+Backend kilit mantığını **zorlamaz**. Yalnızca sandık açmada bir önceki lesson adımının tamamlanmış olmasını kontrol eder. Harita durumları istemcide şöyle hesaplanır (web: `pages/index.vue`):
+
+Her konu için adımlar `sort_order` sırasıyla dolaşılır. Lesson ve sandık adımları **tek bir sıra** oluşturur:
+- `progress.is_step_completed === true` → **completed**
+- Tamamlanmamış **ilk** adım → **active**
+- Ondan sonraki tüm adımlar → **locked**
+
+| Düğüm | Kaynak | completed | active | locked |
+|-------|--------|-----------|--------|--------|
+| **Lesson** | `step_type: "lesson"` | `best_score` puanı gösterilir, tekrar çözülebilir | Tıklanınca quiz başlar | 🔒, tıklanamaz |
+| **Sandık** | `step_type: "reward"` | Açılmış hediye ikonu, **devre dışı** | Tıklanınca ödül diyaloğu açılır | Soluk görünür, ödül alınamaz |
+| **Boss** | Her konunun sonuna istemci ekler | — | Konudaki **tüm** adımlar (sandıklar dahil) tamamlanınca | Aksi halde |
+
+- **Lesson** düğümü quiz'i `topicId + stepId (+ testId)` ve `sessionType: "lesson"` ile başlatır.
+- **Boss** düğümü konunun final sınavıdır: `topicId` + `sessionType: "topic_final"`, `stepId` yok. Kayıtlı kullanıcıya 15 soru gelir. Misafirlere konudan rastgele 10 soru gelir, çünkü misafirde final yoktur (7.1). Boss'u bitirmek hiçbir adımı tamamlamaz.
+- **Sandık açma:** Kayıtlı kullanıcı için `POST /api/quiz/reward/:stepId/claim` çağrılır, ardından `/full` yeniden yüklenir. Misafir için ödül cihazda verilir (10.7).
+- Enerji ≤ 0 iken lesson başlatılmamalı, enerji diyaloğu açılmalıdır (bkz. 16.1).
 
 ---
 
 ## 7. Quiz Sistemi — `/api/quiz`
 
-### 7.1 Misafir Quiz Başlatma (Auth Gerekmez)
-
+### 7.1 Misafir Quiz Başlatma (Public)
 ```
 GET /api/quiz/guest-start?topicId=<uuid>&stepId=<uuid>&testId=<uuid>
 ```
+- `topicId` zorunludur (`400 topicId is required`). Parametreler UUID olarak doğrulanmaz. Geçersiz bir değer `500` dönebilir, bu yüzden yalnızca API'den gelen ID'leri gönderin.
+- `sessionType` kabul edilir ama **yok sayılır**. Misafirde final soru dağılımı yoktur.
+- Soru seçimi:
+  - `testId` verilirse o testin soruları (sıralı) gelir.
+  - `stepId` verilirse adımın ilk testinin soruları gelir. Test yoksa adımdan rastgele 10 soru gelir.
+  - Yalnızca `topicId` verilirse konudan rastgele 10 soru gelir.
+- Sunucuda **oturum oluşturulmaz**. Puanlama, enerji ve palamut tamamen cihazda tutulur.
+- **Response:** `{ questions: QuestionWithAnswers[] }`
+- **Hatalar:** `404 Topic not found`, `404 No questions available`
 
-- `topicId` zorunlu (yoksa `400`). `sessionType` parametresi kabul edilir ama misafir modunda final testleri yoktur.
-- Soru seçimi: `testId` → o testin soruları (sıralı); `stepId` → adımın ilk testinin soruları; yalnızca `topicId` → konudan rastgele 10 soru.
-- Sunucuda oturum oluşturulmaz. Sonuç, enerji ve acorn tamamen **cihazda** tutulur (bkz. 15.2).
-
-**Response:**
-```typescript
-{ questions: Array<QuestionWithAnswers> }
+### 7.2 Quiz Oturumu Başlatma (Auth)
+```
+POST /api/quiz/start              (201)
+Body: { topicId: uuid; stepId?: uuid; testId?: uuid; sessionType?: "lesson" | "review" | "practice" | "step_final" | "topic_final" }   // default "lesson"
 ```
 
-### 7.2 Quiz Oturumu Başlatma (Auth Gerekli)
+**Soru seçimi (öncelik sırasıyla):**
 
-```
-POST /api/quiz/start
-Authorization: Bearer <token>
-```
-
-**Request Body:**
-```typescript
-{
-  topicId: string;       // UUID
-  stepId?: string;       // UUID
-  testId?: string;       // UUID
-  sessionType?: "lesson" | "review" | "practice" | "step_final" | "topic_final";  // default: "lesson"
-}
-```
-
-**Soru Seçim Mantığı (öncelik sırasıyla):**
 | Koşul | Sorular |
 |-------|---------|
-| `sessionType = topic_final` | Konunun tüm sorularından zorluk dağılımı: 2×K1 + 7×K2 + 6×K3 (rastgele, max 15) |
-| `sessionType = step_final` + `stepId` + `testId` | Belirtilen testin soruları (sıralı) |
-| `sessionType = step_final` + `stepId` | Adımın sorularından zorluk dağılımı: 2×K1 + 7×K2 + 6×K3 |
-| `testId` | Testin tüm soruları, `sort_order` sıralı |
-| `stepId` | Adımın ilk testinin tüm soruları (test yoksa adımdan rastgele 10) |
-| Yalnızca `topicId` | Konudan rastgele 10 soru (`review` / `practice` bu yolu kullanır) |
+| `topic_final` | Konudan zorluk dağılımlı 15 soru: 2×Kolay + 7×Orta + 6×Zor (rastgele) |
+| `step_final` + `stepId` + `testId` | O testin soruları (sıralı) |
+| `step_final` + `stepId` | Adımdan zorluk dağılımlı 15 soru (2/7/6) |
+| `testId` | Testin soruları, `sort_order` sıralı |
+| `stepId` | Adımın ilk testinin soruları (test yoksa adımdan rastgele 10) |
+| Yalnızca `topicId` | Konudan rastgele 10 soru (`review` / `practice`) |
 
-> Web istemcisi normal derslerde `topicId + stepId + testId` ile `lesson` oturumu başlatır. Şu anki içerikte her lesson adımında tek bir test vardır.
+> Normal derslerde `topicId + stepId + testId` ve `lesson` kullanılır. Mevcut içerikte her lesson adımında tek test vardır.
 
-**Response (201):**
-```typescript
-{
-  session: QuizSession;               // session.id sonraki isteklerde kullanılır
-  questions: Array<QuestionWithAnswers>;
-}
-```
+**Response (201):** `{ session: QuizSession; questions: QuestionWithAnswers[] }`
 
-**Hata Kodları:**
-- `403` — Enerji bitti (`unlimited_energy` efekti yoksa ve enerji 0 ise). Web istemcisi bu durumda enerji satın alma diyaloğu açar.
-- `404` — `Topic not found` / `No questions available`
+**Hatalar:**
+- `403` `Enerjin kalmadı! Enerjinin yenilenmesini bekle veya marketten satın al.` döner. Enerji 0'dır ve `unlimited_energy` efekti yoktur. Bu durumda enerji diyaloğu açılmalıdır.
+- `404` `Topic not found` / `No questions available`
 
----
-
-### 7.3 Soru Formatı (Client'a Gelen)
-
+### 7.3 Soru Nesnesi
 ```typescript
 interface QuestionWithAnswers extends Question {
-  answers: Array<{
-    id: string;
-    question_id: string;
-    answer_text: string;      // HTML içerebilir
-    is_correct: boolean;      // ⚠️ Doğru cevap client'a gönderilir
-  }>;                         // Sadece multiple_choice / true_false / swipe için dolu, diğerlerinde []
+  answers: Array<{ id: string; question_id: string; answer_text: string /* HTML */; is_correct: boolean }>;
+  // Yalnızca multiple_choice / true_false / swipe için dolu; diğer tiplerde []
 }
 ```
+- `is_correct` istemciye **gönderilir**. Doğru/yanlış geri bildirimi anında, sunucuya gitmeden gösterilir. Ödüller sunucuda yeniden hesaplanır.
+- Mevcut içeriğin tamamı `multiple_choice` tipindedir.
+- Render kuralları Bölüm 8'dedir.
 
-**Önemli Render Notları:**
-- `question_text` ve `answer_text` **HTML içerebilir**. Web istemcisi şu etiketlere izin verir: `p, ul, ol, li, b, strong, i, em, u, br, sup, sub, span`. Mobilde bir HTML renderer (ör. `react-native-render-html`, Flutter `flutter_html`) kullanılmalı ve aynı whitelist ile sanitize edilmelidir.
-- `image_url` **göreli bir yoldur** (ör. `QuestionsImage/kpss/matematik/xxx.png`) ve API'den değil **web sunucusundan** servis edilir: `https://<web-domain>/<image_url>`.
-- `exam_source` doluysa sorunun çıkmış soru kaynağıdır (ör. `"2024 KPSS-LİSANS"`) — rozet olarak gösterilir.
-- `explanation` cevaptan sonra, `hint` isteğe bağlı ipucu olarak gösterilir.
-- `is_correct` client'a geldiği için anlık geri bildirim (doğru/yanlış, enerji düşüşü) sunucuya gitmeden gösterilebilir. Web istemcisi böyle çalışır ve sonuçları sonda toplu gönderir.
-- Şu anki içerikteki tüm sorular `multiple_choice`'tur; diğer soru tipleri backend tarafından desteklenir ama henüz içerik yoktur.
-
----
-
-### 7.4 Tekil Cevap Gönderme
-
-```
-POST /api/quiz/:sessionId/answer
-Authorization: Bearer <token>
-```
-
-**Request Body (`AnswerInput`):**
-```typescript
-{
-  questionId: string;           // UUID
-  answerId?: string;            // UUID — multiple_choice, true_false, swipe için
-  isSkipped?: boolean;          // default: false
-  timeSpent?: number;           // Milisaniye (int, >= 0)
-  answeredAt?: string;          // ISO 8601 datetime (client-side)
-  textAnswer?: string;          // fill_blank — max 500 karakter, büyük/küçük harf duyarsız
-  matchingAnswer?: Array<{      // matching — her leftIndex, aynı indexteki rightIndex ile eşleşmeli
-    leftIndex: number;
-    rightIndex: number;
-  }>;
-  orderedIndices?: number[];    // ordering — kullanıcının sırası
-  isCorrect?: boolean;          // flashcard — client-side değerlendirme
-}
-```
-
-**Response:**
-```typescript
-{
-  isCorrect: boolean;
-  energy_remaining: number;     // 0-25
-}
-```
-
-**Hata Kodları:** `404` (oturum/soru yok), `400` (`Session already finished`)
-
-> Yanlış cevapta (atlanmadıysa) enerji 1 azalır, `unlimited_energy` aktifse azalmaz.
-> **Önerilen akış** tekil gönderim değil, 7.6'daki toplu bitirmedir (web istemcisi tekil endpoint'i kullanmıyor).
-
----
-
-### 7.5 Oturum Bitirme (Tekil Cevaplardan Sonra)
-
-```
-POST /api/quiz/:sessionId/finish
-Authorization: Bearer <token>
-Body (opsiyonel): { "skip_rewards": boolean }
-```
-
-**Response:** 7.6 ile aynı format. Tekrar çağrılırsa `400 Session already finished`.
-
----
-
-### 7.6 Toplu Cevap Gönderip Bitirme (Önerilen)
-
+### 7.4 Toplu Cevap Gönderip Bitirme (Önerilen Yol)
 ```
 POST /api/quiz/:sessionId/finish-bulk
-Authorization: Bearer <token>
+Body: { answers: AnswerInput[]; skip_rewards?: boolean }      // skip_rewards default false
 ```
 
-**Request Body:**
+**AnswerInput:**
 ```typescript
 {
-  answers: Array<AnswerInput>;   // 7.4'teki format
-  skip_rewards?: boolean;        // default: false
+  questionId: string;            // UUID
+  answerId?: string;             // multiple_choice, true_false, swipe
+  isSkipped?: boolean;           // default false
+  timeSpent?: number;            // ms, int >= 0
+  answeredAt?: string;           // ISO 8601
+  textAnswer?: string;           // fill_blank — max 500, trim + küçük harf karşılaştırılır
+  matchingAnswer?: Array<{ leftIndex: number; rightIndex: number }>;   // matching — doğru: leftIndex === rightIndex
+  orderedIndices?: number[];     // ordering
+  isCorrect?: boolean;           // yalnızca flashcard (istemci değerlendirir)
 }
 ```
 
 **Response (200):**
 ```typescript
 {
-  // QuizSession alanlarının tamamı (güncellenmiş hali):
-  id: string;
-  user_id: string;
-  topic_id: string;
-  step_id: string | null;
-  test_id: string | null;
-  session_type: string;
-  is_final_test: boolean;
-  started_at: string;
-  finished_at: string;
-  score: number;
-  xp_earned: number;
-  duration: number;              // Saniye (started_at → şimdi)
-  total_questions: number;       // Gönderilen cevap sayısına eşitlenir
-  correct_answers: number;
-  energy_lost: number;
-  // Ek alanlar:
+  // Güncellenmiş QuizSession alanları
+  id: string; user_id: string; topic_id: string; step_id: string | null; test_id: string | null;
+  session_type: string; is_final_test: boolean; started_at: string; finished_at: string;
+  score: number; xp_earned: number; duration: number /* sn */; total_questions: number; correct_answers: number; energy_lost: number;
+  // Ek alanlar
   acorn_earned: number;
-  step_completed: boolean;       // Bu oturumla adım İLK KEZ tamamlandıysa true
+  step_completed: boolean;       // Adım bu oturumla İLK KEZ tamamlandıysa true
   topic_completed: boolean;      // Konudaki tüm lesson adımları tamamlandıysa true
 }
 ```
 
 **İş Kuralları:**
-- Doğruluk sunucuda yeniden hesaplanır; client'ın `isCorrect` alanı yalnızca `flashcard` için dikkate alınır.
-- Her yanlış (atlanmamış) cevap için enerji düşülür (`unlimited_energy` yoksa), en az 0'a kadar.
-- **İdempotent:** Oturum zaten bitmişse mevcut oturum `acorn_earned: 0, step_completed: false, topic_completed: false` ile döner. Ağ hatasında güvenle tekrar denenebilir.
-- `skip_rewards: false` iken:
-  - XP = doğru soruların `point_value` toplamı (şu an her soru 1 XP)
-  - Acorn = doğru cevap sayısı
-  - `quizzes_completed`, streak ve `streak_history` güncellenir
-  - `step_id` varsa adım **tamamlandı** işaretlenir (geçme barajı yoktur; bitirmek yeterli) ve `best_score` (yüzde) güncellenir
-- `skip_rewards: true` iken XP/acorn/streak/adım ilerlemesi işlenmez (enerji düşümü yine uygulanır).
-- Başarımlar her bitirmede kontrol edilir; kazanılan her başarım için **+5 acorn** verilir. Yanıtta yeni başarım listesi **dönmez** — gerekirse `GET /api/users/me/achievements` ile karşılaştırılmalı.
+- Doğruluk sunucuda yeniden hesaplanır. Çoktan seçmelide `answerId` o soruya ait olmalıdır. İstemcinin gönderdiği `isCorrect` yalnızca flashcard için dikkate alınır.
+- **İdempotent:** Oturum zaten bitmişse mevcut kayıt `acorn_earned: 0, step_completed: false, topic_completed: false` ile döner. Ağ hatasında güvenle tekrar denenebilir.
+- Her yanlış ve atlanmamış cevap için 1 enerji düşer. `unlimited_energy` aktifse düşmez. Bu düşüş **`skip_rewards: true` olsa da** uygulanır.
+- `skip_rewards: false` olduğunda:
+  - XP olarak doğru soruların `point_value` toplamı eklenir (şu an her soru 1).
+  - Palamut olarak doğru sayısı eklenir.
+  - `quizzes_completed`, seri ve `streak_history` güncellenir.
+  - `step_id` varsa adım tamamlanır ve `best_score` (yüzde) güncellenir. **Geçme barajı yoktur**, testi bitirmek yeterlidir.
+  - Başarımlar kontrol edilir ve her yeni başarım için +5 palamut verilir. Yanıtta yeni başarım listesi **dönmez**.
+- `skip_rewards: true` olduğunda XP, palamut, seri ve adım ilerlemesi işlenmez.
 
-**Web İstemcisinin Kullanımı:**
-- Enerji quiz sırasında 0'a düşerse quiz kapatılır ve `skip_rewards: true` gönderilir.
-- Kullanıcı quizden çıkarsa: `{ answers: [], skip_rewards: true }` ile oturum kapatılır.
-- İstek ağ hatasıyla başarısız olursa cevaplar yerelde saklanır (`pb_pending_quiz`) ve uygulama açıldığında/online olunca tekrar gönderilir. Mobilde de aynı offline kuyruk önerilir.
+### 7.5 Quiz Akışı (Kayıtlı Kullanıcı)
+```
+1. Lesson düğümü → POST /api/quiz/start  (403 → enerji diyaloğu)
+2. Her cevapta answers[].is_correct ile anlık geri bildirim. Cevap yerelde biriktirilir.
+   Yanlışta UI'daki enerji 1 azaltılır.
+3. Enerji 0'a düşerse sonraki soruya geçmeden ENERJİ DİYALOĞU açılır:
+   ├─ Enerji satın alır (POST /store/purchase) → quiz devam eder, ödüller korunur
+   └─ Reddeder → "Çıkarsan ilerlemen kaybolur" uyarısı
+        ├─ Devam → diyalog tekrar açılır
+        └─ Çık   → finish-bulk { answers: [], skip_rewards: true }
+4. Son soru → finish-bulk { answers, skip_rewards: <enerji 0'da bitti mi> }
+5. Sonuç ekranı: xp_earned, acorn_earned, correct_answers, step_completed, topic_completed
+6. Kullanıcı quiz'den çıkarsa → finish-bulk { answers: [], skip_rewards: true }
+7. Ağ hatası → cevapları offline kuyruğa (Hive) yaz, online olunca / açılışta aynı isteği tekrar gönder
+```
+- Web istemcisi offline kuyruğu `pb_pending_quiz` anahtarında `{ sessionId, answers, savedAt, skipRewards }[]` olarak tutar. Mobilde karşılığı `features/quiz/domain/offline_quiz_buffer.dart` dosyasıdır.
 
----
+### 7.6 Eski Endpointler (Kullanmayın)
+```
+POST /api/quiz/:sessionId/answer   Body: AnswerInput   → { isCorrect, energy_remaining }
+POST /api/quiz/:sessionId/finish   Body: { skip_rewards?: boolean }
+```
+Tek tek cevap gönderme akışıdır. Web istemcisi artık kullanmıyor. Mobilde **7.4** kullanılmalıdır.
 
-### 7.7 Ödül Talep Etme
-
+### 7.7 Sandık (Ödül) Açma (Auth)
 ```
 POST /api/quiz/reward/:stepId/claim
-Authorization: Bearer <token>
 ```
-
-**Response (200):**
-```typescript
-{ type: "acorn"; amount: number }
-| { type: "store_item"; itemName: string }
-| { type: "none" }
-```
-
-> Yanıtta güncel bakiye **dönmez**; client bakiyeyi `amount` kadar artırmalı veya `GET /api/users/me` çağırmalıdır.
-
-**Hata Kodları:**
-- `404` — `Reward step not found` (adım yok veya `reward` tipinde değil)
-- `400` — `Reward already claimed`
-- `403` — `Previous step not completed` (bir önceki lesson adımı tamamlanmamış)
+- **Response:** `{ type: "acorn"; amount: number }`, `{ type: "store_item"; itemName: string }` ya da `{ type: "none" }`.
+- Yanıtta güncel bakiye dönmez. Bakiyeyi `amount` kadar artırın veya `/users/me` çağırın.
+- **Hatalar:**
+  - `404` `Reward step not found` (adım yoksa veya `reward` tipinde değilse)
+  - `400` `Reward already claimed`
+  - `403` `Previous step not completed` (bir önceki adım lesson ise ve tamamlanmamışsa)
 
 ---
 
-### 7.8 Soru Şikayeti
+## 8. Soru Gösterimi (Render Kuralları)
+
+### 8.1 HTML
+- `question_text` ve `answers[].answer_text` **HTML**'dir. Sorularda `<p>`, `<b>`, `<u>`, listeler, `<sup>` ve `<sub>` bulunur.
+- Web istemcisinin izin verdiği etiketler: `p, ul, ol, li, b, strong, i, em, u, br, sup, sub, span`. Diğer etiketler atılır, içerikleri kalır.
+- Mobilde `flutter_html` ile render edilir (`core/widgets/html_text.dart`). Yalnızca bu etiketler için stil tanımlanmalıdır. `<ul>/<ol>` maddeleri ayrı satırlarda görünmelidir, `<sup>/<sub>` üst ve alt simge olarak gösterilmelidir.
+
+### 8.2 Görsel Yerleşimi — `<!--img-->` İşareti
+Soru görselinin metin içindeki yeri `question_text` içindeki `<!--img-->` yorumuyla belirlenir:
+```
+before = metnin ilk "<!--img-->" işaretinden önceki kısmı
+after  = sonraki kısmı
+Gösterim: [before HTML] → [görsel] → [after HTML]
+İşaret yoksa: [görsel] → [tüm metin]
+```
+- Metni **sanitize etmeden önce** bölün. HTML sanitizer'lar yorumları siler.
+- Örnek: Matematik sorularında görsel, kitaptaki gibi soru kökünün ortasında yer alır.
+
+### 8.3 Görsel Adresi
+- `image_url` göreli bir yoldur, ör. `QuestionsImage/kpss/matematik/kesir-problemleri_t1_q15.jpg`.
+- Dosyalar API'den değil **web sunucusundan** servis edilir: `https://<web-domain>/<image_url>`. Web domain'i ayrı bir yapılandırma değeri olmalıdır (ör. `WEB_BASE_URL`).
+- Görsel yüklenemezse web istemcisi "Bu sorunun görseli yüklenemedi veya eksik." mesajını gösterir. Görsel genişliğe sığdırılır, yüksekliği sınırlıdır ve oran korunur.
+
+### 8.4 Açıklama (`explanation`)
+- Açıklama düz metindir, yalnızca `<sup>` ve `<sub>` içerebilir. Diğer `<`, `>` karakterleri **metin olarak** gösterilmelidir, ör. `a < b`.
+- Web'deki algoritma:
+  1. `&lt; &gt; &amp;` karakterlerini çöz.
+  2. Tüm metni escape et.
+  3. Yalnızca `<sup> </sup> <sub> </sub>` etiketlerini geri aç.
+- Açıklama boşsa sırasıyla şu değerler denenir: `explanation`, `type_data.back`, `"Açıklama yok"`.
+
+### 8.5 Cevap Geri Bildirimi
+Cevap verildikten sonra alttan açılan bir panel (bottom sheet) gösterilir:
+- Doğru/yanlış başlığı
+- Yanlışsa doğru seçeneğin `answer_text` değeri (HTML)
+- Açılıp kapanabilen açıklama (mobilde varsayılan kapalı)
+- **"Bildir"** butonu (bkz. Bölüm 9)
+- "Devam" butonu
+
+### 8.6 Diğer Alanlar
+- `exam_source` doluysa rozet olarak gösterilir: `📚 2024 KPSS-LİSANS`.
+- `hint` veride vardır ama web'de gösterilmiyor (opsiyonel).
+- Soru üst barında da bir bildir (bayrak) butonu bulunur.
+
+### 8.7 Soru Tipleri (`type_data`)
+Backend tüm tipleri destekler, ancak içerikte şimdilik yalnızca `multiple_choice` vardır.
+
+| Tip | `type_data` | Gönderilecek alan |
+|-----|-------------|-------------------|
+| `multiple_choice`, `true_false`, `swipe` | `null` (`answers` kullanılır) | `answerId` |
+| `fill_blank` | `{ acceptable_answers: string[]; word_options?: string[] }` — boşluklar `question_text` içinde `__` | `textAnswer` |
+| `matching` | `{ pairs: [{ left, right }] }` — sağ taraf karıştırılarak gösterilir | `matchingAnswer` (orijinal indeksler) |
+| `ordering` | `{ items: [{ text, position }] }` | `orderedIndices` |
+| `flashcard` | `{ front?, back }` | `isCorrect` (kullanıcının kendi değerlendirmesi) |
+
+---
+
+## 9. Soru Bildirimi (Hatalı Soru)
+
+Hem **kayıtlı kullanıcılar** hem **misafirler** soru bildirebilir. Bildirimler admin panelinde soru bazında toplanır. Aynı soruyu kaç kişinin bildirdiği önceliği belirler.
+
+**Sebepler ve gösterilecek etiketler:**
+
+| `reason` | Etiket |
+|----------|--------|
+| `wrong_answer` | Yanlış cevap işaretlenmiş |
+| `unclear_question` | Soru belirsiz / anlaşılmıyor |
+| `wrong_explanation` | Açıklama hatalı |
+| `typo` | Yazım hatası var |
+| `missing_image` | Görsel eksik veya yanlış |
+| `other` | Diğer |
+
+### 9.1 Kayıtlı Kullanıcı
+```
+POST /api/quiz/report-question            (auth, 201)
+Body: { questionId: uuid; reason: Reason; description?: string /* max 500 */ }
+```
+- **Response:** Oluşturulan `QuestionReport` kaydı.
+- **Hatalar:** `404 Question not found`, `409 You have already reported this question` (kullanıcı başına soru başına 1 bildirim).
+
+### 9.2 Misafir
+```
+POST /api/quiz/guest-report-question      (public, 201, IP başına günde 20)
+Body: { questionId: uuid; guestId: uuid; reason: Reason; description?: string /* max 200 */ }
+```
+- **Response:** `{ id, question_id, reason, status, created_at }`
+- `guestId`, cihazda bir kez üretilen ve **kalıcı** olarak saklanan bir UUID v4'tür (bkz. 10.3). Tekrar bildirimi engellemek için kullanılır.
+- **Hatalar:**
+  - `400` validasyon (ör. açıklama 200 karakteri aşıyor)
+  - `404 Question not found`
+  - `409` aynı misafir aynı soruyu tekrar bildirdi
+  - `429` günlük limit aşıldı
+
+### 9.3 Arayüz
+- Modal içinde sebep seçimi (radyo) zorunludur. Açıklama alanı isteğe bağlıdır ve `maxLength` misafirde 200, üyede 500'dür.
+- Hata mesajları:
+  - `409` → "Bu soruyu zaten bildirdin."
+  - `429` → "Çok fazla bildirim gönderdin, daha sonra tekrar dene."
+  - Diğer → "Rapor gönderilemedi."
+- Başarıda "Rapor gönderildi, teşekkürler!" gösterilir ve modal 1,5 sn sonra kapanır.
+
+---
+
+## 10. Misafir Modu
+
+Misafir modu, kullanıcının **hesap açmadan** uygulamayı denemesini sağlar. Misafir ders haritasını görür, quiz çözer, enerji harcar, palamut kazanır, sandık açar ve hatalı soru bildirir. Hesap açtığında ya da giriş yaptığında ilerlemesi hesaba aktarılır.
+
+> **Temel ilke:** Misafirin sunucuda hiçbir kaydı yoktur. Puanlama, enerji, palamut ve ilerleme tamamen **cihazda** tutulur. Sunucu misafir için yalnızca içerik verir (soru, ders) ve bildirim alır.
+
+### 10.1 Misafir Kimdir?
+- Cihazda geçerli bir token yoksa kullanıcı misafirdir.
+- Misafir durumu ile kayıtlı kullanıcı durumu **aynı anda** bulunmaz. Kayıt veya başarılı birleştirme sonrası misafir verisi silinir. Yalnızca `guestId` kalır.
+
+### 10.2 Misafirin Erişebildikleri
+
+| Özellik | Misafir | Not |
+|---------|---------|-----|
+| Sınav seçimi | ✅ | `GET /exam-groups` |
+| Ders haritası | ✅ | `/modules`, `/courses/*` (opsiyonel auth) + yerel ilerleme |
+| Lesson quiz'leri | ✅ | `GET /quiz/guest-start` |
+| Boss (konu finali) | ✅ | Konudan rastgele 10 soru |
+| Sandık açma | ✅ | Yerel (10.7) |
+| Enerji ve palamut | ✅ | Yerel (10.4, 10.5) |
+| Mağaza | ⚠️ Kısmen | Ürünler listelenir, **yalnızca enerji paketleri** yerel palamutla alınabilir. Diğer ürünler "Profil oluştur" çağrısıyla kilitli |
+| Hatalı soru bildirme | ✅ | `POST /quiz/guest-report-question` |
+| Liderlik tablosu | ❌ | Ekran açılabilir, veri yüklenmez. Kayıt çağrısı (CTA) gösterilir |
+| Profil, istatistik, başarımlar, seri | ❌ | Kayıt ekranına yönlendirilir |
+| Arkadaşlar, bildirimler | ❌ | Kayıt ekranına yönlendirilir |
+
+### 10.3 Cihazda Tutulan Misafir Durumu
+Hive'da tek bir kutuda (ör. `guest`) saklanması önerilir. Web karşılıkları parantez içindedir.
+
+```dart
+// GuestState (web: localStorage "guestState")
+class GuestState {
+  String? examTypeId;                 // seçilen sınav türü   (web ayrıca: "guestExamTypeId")
+  String? examGroupId;                // seçilen sınav grubu  (web ayrıca: "guestExamGroupId")
+  List<GuestQuizResult> quizResults;  // bitirilen her quiz için bir kayıt — default []
+  List<String> claimedRewardStepIds;  // açılan sandıkların step ID'leri — default []
+  int acornBalance;                   // default 500
+  int energyCount;                    // default 25 (0-25)
+  int? energyRefreshedAtMs;           // yenilenme sayacının başlangıcı (epoch ms) — enerji doluysa null
+}
+
+class GuestQuizResult {
+  String topicId;
+  String? stepId;
+  String? testId;
+  int correctCount;
+  int totalQuestions;
+}
+
+// Ayrı ve kalıcı anahtar (web: localStorage "guestId")
+String guestId;   // İlk ihtiyaçta UUID v4 üretilir. Kayıt/girişte SİLİNMEZ.
+```
+
+Seçilen sınav türü, misafir durumundan bağımsız olarak doğru tutulmalıdır. Web'de `guestState` ilk kaydedildiğinde `examTypeId` boş kalabiliyor, bu bir hata. Mobilde tek bir kaynak kullanın.
+
+### 10.4 Enerji (Yerel)
+Sabitler sunucuyla aynıdır: `MAX_ENERGY = 25`, `REGEN_INTERVAL = 10 dakika`.
 
 ```
-POST /api/quiz/report-question
-Authorization: Bearer <token>
-```
+Yenilenme (uygulama açılışında, ön plana gelişte ve her saniyelik sayaç tikinde):
+  if energyCount >= 25 || energyRefreshedAtMs == null → değişiklik yok
+  eklenecek = floor((now - energyRefreshedAtMs) / 10dk)
+  if eklenecek > 0:
+     energyCount = min(25, energyCount + eklenecek)
+     energyRefreshedAtMs = (energyCount == 25) ? null : energyRefreshedAtMs + eklenecek * 10dk
 
-**Request Body:**
-```typescript
+Enerji değiştiğinde (setEnergy):
+  değer 0-25 aralığına sıkıştırılır
+  yeni değer 25 ise                          → energyRefreshedAtMs = null
+  25'ten aşağı düştüyse                       → energyRefreshedAtMs = now   (sayaç başlar)
+  zaten 25'in altında ve sayaç yoksa         → energyRefreshedAtMs = now
+
+Sonraki +1 zamanı = energyRefreshedAtMs + 10dk   (enerji doluysa yok)
+```
+- Her **yanlış** cevapta 1 enerji düşer.
+- Enerji 0 iken lesson başlatılamaz, enerji diyaloğu açılır.
+- **Enerji paketi satın alma (misafir):**
+  - Liste `GET /api/store/items` içinden `item_type == "energy_refill"` olanlardır.
+  - Satın alma: `acornBalance >= price_acorn` ise önce `acornBalance -= price_acorn`, sonra `setEnergy(min(25, energy + metadata.energy_count))`.
+  - Yetersiz bakiyede "Yetersiz palamut." gösterilir.
+
+### 10.5 Palamut (Yerel)
+- Başlangıç bakiyesi 500'dür.
+- Quiz bitince doğru cevap başına +1 palamut eklenir.
+- Sandık açınca +`reward_amount` eklenir (boşsa 10).
+- Yalnızca enerji paketlerine harcanabilir.
+- Misafirin XP'si yoktur. Quiz sırasında gösterilen "+XP" yalnızca görseldir.
+
+### 10.6 Yerel İlerlemeyi Haritaya Uygulama (Overlay)
+`GET /api/courses/:id/full` yanıtı alındıktan sonra **her adım için** şu kurallar uygulanır (web: `overlayGuestProgress`):
+```
+topic.progress == null ise   → topic.progress = { is_unlocked: true }
+
+step.progress zaten doluysa → dokunma
+step_type == "reward":
+   step.progress = { tests_completed: 0,
+                     is_step_completed: claimedRewardStepIds.contains(step.id),
+                     step_final_passed: false }
+step_type == "lesson":
+   sonuçlar = quizResults.where(r.stepId == step.id)
+   tamamlandı = sonuçlar.isNotEmpty            // geçme barajı yok
+   step.progress = { tests_completed: tamamlandı ? 1 : 0,
+                     is_step_completed: tamamlandı,
+                     step_final_passed: tamamlandı,
+                     best_score: max(round(correct / total * 100)) veya 0 }
+```
+Ardından düğüm durumları kayıtlı kullanıcıdakiyle **aynı** şekilde hesaplanır (6.4).
+
+### 10.7 Misafir Quiz ve Sandık Akışı
+```
+Lesson:
+1. Enerji > 0 kontrolü (değilse enerji diyaloğu)
+2. GET /api/quiz/guest-start?topicId&stepId[&testId]
+3. Her cevap yerelde puanlanır (answers[].is_correct). Yanlışta setEnergy(energy - 1)
+4. Enerji 0 → enerji diyaloğu (10.4'teki yerel satın alma) / reddederse çıkış uyarısı
+5. Son soru → GuestQuizResult eklenir ve acornBalance += doğru sayısı
+6. Sonuç ekranı → "Devam" → KAYIT DUVARI (10.8)
+7. Yarıda çıkış → hiçbir şey kaydedilmez
+
+Boss (topic_final): guest-start?topicId=<id> (stepId yok) → 10 rastgele soru.
+  Sonuç stepId'siz kaydedilir. Hiçbir adımı tamamlamaz ama kayıt olunca XP'ye sayılır.
+
+Sandık: claimedRewardStepIds'e step.id eklenir ve acornBalance += reward_amount (boşsa 10)
+        → haritayı yeniden hesapla
+```
+- Web, enerji 0'da biten misafir quiz'ini de kaydedip palamut verir. Kayıtlı kullanıcıda ise `skip_rewards: true` gönderilir. Mobilde iki modun aynı davranması önerilir: enerji 0'da biten misafir quiz'i için palamut verilmez, sonuç kaydedilmez.
+- Hatalı soru bildirimi misafirde de çalışır (Bölüm 9.2).
+
+### 10.8 Kayıt Duvarı ve Kayıt Olurken Aktarım
+**Kayıt duvarı** (web: `/auth/register-wall`): Misafir her quiz'in sonuç ekranında "Devam"a bastığında gösterilir. Seçenekler:
+- **Profil Oluştur** → kayıt ekranı
+- **Giriş Yap** → giriş ekranı
+- **Ana sayfaya dön** → ders haritası (misafir olarak devam)
+
+Ayrıca profil sekmesi, mağazadaki banner ve kilitli özellikler doğrudan kayıt ekranına yönlendirir.
+
+**Kayıt isteği** (`POST /api/auth/register`):
+```jsonc
 {
-  questionId: string;
-  reason: "wrong_answer" | "unclear_question" | "wrong_explanation" | "typo" | "missing_image" | "other";
-  description?: string;   // Max 500 karakter
+  "email": "...", "username": "...", "password": "...",
+  "exam_type_id": "<formda seçilen ya da misafirin seçtiği sınav>",
+  "acorn_balance": guest.acornBalance,
+  "energy": guest.energyCount,       // Göndermeden önce enerji yenilemesini uygulayın
+  "guest_data": {
+    "quiz_results": guest.quizResults,
+    "claimed_reward_step_ids": guest.claimedRewardStepIds
+  }
 }
 ```
 
-**Response (201):** Oluşturulan `QuestionReport` kaydı.
+**Sunucuda olanlar:**
+- `quiz_results[].stepId` ve `claimed_reward_step_ids` içindeki **tüm** ID'ler veritabanında var olmalıdır. **Biri bile geçersizse `guest_data` tamamen sessizce yok sayılır**, kayıt yine başarılı olur. İçerik güncellemesiyle silinmiş bir adım tüm ilerlemeyi kaybettirebilir. Göndermeden önce elinizdeki ders verisinde bulunmayan adımları filtreleyin.
+- XP olarak tüm sonuçların `correctCount` toplamı eklenir. Buna `stepId`'siz boss sonuçları da dahildir, ama yalnızca en az bir sonuçta `stepId` varsa.
+- Her adım için `user_step_progress` oluşturulur. Adım, en az `tests_required` sayıda farklı testi varsa tamamlanmış sayılır.
+- Açılan sandıklar talep edilmiş sayılır. **Palamut tekrar eklenmez**, çünkü misafir bakiyesi `acorn_balance` ile zaten aktarılır.
 
-**Hata Kodları:** `404` (soru yok), `409` (`You have already reported this question` — kullanıcı başına soru başına 1 şikayet)
+**Başarılı yanıttan sonra:**
+1. Token'ı kaydedin.
+2. Misafir durumunu silin (`guestId` hariç).
+3. `GET /users/me` çağırın.
+4. Ana sayfaya gidin.
+
+### 10.9 Mevcut Hesaba Giriş Yaparken Birleştirme
+Girişten sonra cihazda misafir ilerlemesi varsa şu istek gönderilir. İlerleme varsayılır: `quizResults` boş değilse, `claimedRewardStepIds` boş değilse ya da `acornBalance > 500` ise.
+```
+POST /api/auth/merge-guest-progress
+{ "quiz_results": guest.quizResults,
+  "claimed_rewards": guest.claimedRewardStepIds,
+  "earned_acorns": max(0, guest.acornBalance - 500) }
+```
+- **Başarılıysa** misafir durumu silinir. **Hata olursa** silinmez, sonraki açılışta tekrar denenir. İlerleme yoksa misafir durumu doğrudan silinir.
+- **Sunucu kuralları:**
+  - **Adımlar:** Kayıttaki gibi, bir adım ID'si bile geçersizse adımlar ve sandıklar aktarılmaz. Palamut bundan etkilenmez.
+  - **XP:** Yalnızca hesapta daha önce tamamlanmamış adımlar için verilir, aynı ilerleme iki kez sayılmaz.
+  - **Palamut:** `earned_acorns` bakiyeye eklenir (işlem tipi `guest_sync`). Misafirin harcadığı palamut bu farka dahildir, enerji aktarılmaz.
+
+### 10.10 Mobil Uygulamada Yapılması Gerekenler
+Mevcut mobil kodda misafir desteği yalnızca `guest-start` çağrısı ve kayıtta `guestData` parametresinden ibarettir. Eksikler:
+- [ ] `features/guest`:
+  - `GuestState` modeli ve Hive deposu
+  - `guestId` üretimi
+  - Enerji yenilenme mantığı (10.4)
+  - Palamut işlemleri
+  - Overlay (10.6)
+- [ ] Router:
+  - Token yoksa misafirin girebileceği rotalar: `home`, `courseDetail`, `quiz`, `store`, `leaderboard`.
+  - `profile`, `editProfile`, `friends` ve `notifications` için kayıt ekranına yönlendirme.
+- [ ] Quiz ekranı:
+  - Misafir dalı (yerel puanlama, enerji ve sonuç kaydı)
+  - Bildir butonu ve misafir endpoint'i
+  - Kayıt duvarı
+- [ ] Enerji diyaloğu ve mağaza: misafirin yerel palamutla enerji alması.
+- [ ] Kayıt: `getRegistrationPayload` karşılığı. Kayıt ekranına `acorn_balance`, `energy` ve geçerli adımlara göre filtrelenmiş `guest_data` gönderilmeli.
+- [ ] Giriş: `mergeGuestProgress` çağrısı ve başarıda misafir verisinin temizlenmesi.
+- [ ] `Endpoints`'e `quizGuestReportQuestion = '/api/quiz/guest-report-question'` eklenmeli.
 
 ---
 
-## 8. Kullanıcı Profili — `/api/users`
+## 11. Kullanıcı Profili — `/api/users`
 
 Tüm endpointler auth gerektirir.
 
-### 8.1 Profil
-
+### 11.1 Profil
 ```
 GET /api/users/me
 ```
-
-Çağrıldığında enerji yenilenmesi sunucuda hesaplanıp kaydedilir.
-
-**Response:**
+Çağrıldığında sunucu enerji yenilemesini hesaplar ve kaydeder.
 ```typescript
 {
-  id: string;
-  email: string;
-  username: string;
-  avatar_url: string | null;
+  id: string; email: string; username: string; avatar_url: string | null;
   daily_goal_xp: number;           // 10 | 20 | 50 | 100 — default 50
   energy: number;                  // 0-25
-  energy_refreshed_at: string;     // ISO 8601
+  energy_refreshed_at: string;
   next_energy_at: string | null;   // Sonraki +1 enerji zamanı (null = dolu)
   acorn_balance: number;
   active_exam_type_id: string | null;
@@ -665,1007 +799,418 @@ GET /api/users/me
 }
 ```
 
----
-
-### 8.2 İstatistikler
-
+### 11.2 İstatistikler
 ```
 GET /api/users/me/stats
 ```
-
-**Response:**
 ```typescript
 {
-  user_id: string;
-  xp: number;
-  level: number;              // Şu an güncellenmiyor, hep 1
+  user_id: string; xp: number; total_xp: number;
+  level: number;              // Güncellenmiyor, hep 1
   streak: number;             // current_streak ile aynı
-  total_xp: number;
-  max_streak: number;
-  daily_xp: number;           // Şu an güncellenmiyor
-  weekly_xp: number;          // Şu an güncellenmiyor
-  current_streak: number;
+  current_streak: number; max_streak: number;
+  daily_xp: number; weekly_xp: number;   // Güncellenmiyor
   quizzes_completed: number;
+  last_active_date: string | null;       // YYYY-MM-DD (UTC)
   updated_at: string;
-  last_active_date: string | null;   // YYYY-MM-DD
 }
 ```
 
----
-
-### 8.3 Başarımlar
-
+### 11.3 Başarımlar
 ```
 GET /api/users/me/achievements
 ```
-
-**Response:** Kullanıcının kazandığı başarımlar (`earned_at` azalan sıralı).
+Kazanılan başarımları en yeniden eskiye döner:
 ```typescript
-Array<{
-  id: string;
-  name: string;
-  description: string;
-  icon_url: string;           // Emoji
-  category: "quiz" | "streak";
-  requirement_type: string;
-  requirement_value: number;
-  earned_at: string;
-}>
+Array<{ id: string; name: string; description: string; icon_url: string; category: string;
+        requirement_type: string; requirement_value: number; earned_at: string }>
 ```
+Tüm başarımların listesini dönen bir endpoint yoktur. Kilitli olanları göstermek için liste istemcide sabit tutulur (16.5).
 
-> Tüm başarımların listesini dönen bir endpoint yoktur. Kilitli başarımları göstermek için listeyi client'ta sabit tutun (bkz. 15.8).
-
----
-
-### 8.4 Seri Geçmişi (Bu Hafta)
-
+### 11.4 Seri Geçmişi (Bu Hafta)
 ```
 GET /api/users/me/streak-history
 ```
-
-**Response:** Her zaman 7 elemanlı (Pazartesi → Pazar)
+Her zaman 7 eleman döner (Pazartesi → Pazar):
 ```typescript
-Array<{
-  label: "Pzt" | "Sal" | "Çrş" | "Per" | "Cum" | "Cts" | "Paz";
-  date: string;        // YYYY-MM-DD
-  done: boolean;       // O gün en az 1 quiz tamamlandı mı
-  isToday: boolean;
-}>
+Array<{ label: "Pzt" | "Sal" | "Çrş" | "Per" | "Cum" | "Cts" | "Paz"; date: string; done: boolean; isToday: boolean }>
 ```
+Günler UTC'ye göre hesaplanır.
 
-> Günler sunucu saatine göre **UTC** hesaplanır.
-
----
-
-### 8.5 Profil Güncelleme
-
+### 11.5 Profil Güncelleme
 ```
 PATCH /api/users/me
 ```
-
-**Request Body:** (alan adları **camelCase**)
+Alan adları **camelCase**'dir.
 ```typescript
 {
-  username?: string;            // 3-30 karakter, [a-z0-9._]
-  email?: string;               // currentPassword zorunlu
+  username?: string;          // 3-30 karakter, [a-z0-9._] — kayıttakinden gevşek; istemcide kayıt regex'ini uygulayın
+  email?: string;             // currentPassword zorunlu
   currentPassword?: string;
-  newPassword?: string;         // Min 6 karakter, currentPassword zorunlu
-  avatarUrl?: string;           // Geçerli URL
-  dailyGoalXp?: "10" | "20" | "50" | "100";   // String olarak gönderilir
+  newPassword?: string;       // Min 6, currentPassword zorunlu
+  avatarUrl?: string;         // Geçerli URL (dosya yükleme yok)
+  dailyGoalXp?: "10" | "20" | "50" | "100";   // String
 }
 ```
+- **Response:** `{ id, email, username, avatar_url, daily_goal_xp }`
+- **Hatalar:**
+  - `400` validasyon
+  - `401` `Mevcut şifre hatalı`
+  - `409` `Bu kullanıcı adı zaten kullanılıyor` / `Bu e-posta zaten kullanılıyor`
 
-**Response:**
-```typescript
-{ id: string; email: string; username: string; avatar_url: string | null; daily_goal_xp: number }
-```
-
-**Hata Kodları:**
-- `400` — Validasyon hatası (ör. şifre/e-posta değişiminde `currentPassword` eksik)
-- `401` — `Mevcut şifre hatalı`
-- `409` — Kullanıcı adı veya e-posta kullanımda
-
----
-
-### 8.6 Sınav Kayıtları (Enrollments)
-
+### 11.6 Sınav Kayıtları
 ```
 GET    /api/users/me/enrollments
 POST   /api/users/me/enrollments            Body: { "exam_type_id": "<uuid>" }
 DELETE /api/users/me/enrollments/:examTypeId
 PATCH  /api/users/me/active-exam            Body: { "exam_type_id": "<uuid>" }
 ```
-
-**GET Response:**
+**GET** yanıtı (yalnızca aktif kayıtlar):
 ```typescript
-Array<{
-  id: string;
-  exam_type_id: string;
-  enrolled_at: string;
-  exam_type_name: string;     // "KPSS Lisans"
-  exam_type_slug: string;     // "lisans"
-  exam_group_name: string;    // "KPSS"
-  exam_group_slug: string;    // "kpss"
-}>
+Array<{ id: string; exam_type_id: string; enrolled_at: string; exam_type_name: string; exam_type_slug: string; exam_group_name: string; exam_group_slug: string }>
 ```
 
-| İşlem | Başarılı Yanıt | Hatalar |
-|-------|----------------|---------|
-| `POST` | `201` — enrollment kaydı (aktif olmayan sınava eklemez) | `404` sınav türü yok/pasif, `409` zaten kayıtlı |
-| `DELETE` | `{ newActiveExamTypeId: string \| null }` — silinen aktif sınavsa en eski kayda geçilir | `400` son kayıt silinemez, `404` kayıt yok |
-| `PATCH active-exam` | `{ id, username, email, active_exam_type_id }` | `404` bu sınava kayıtlı değil |
+| İşlem | Başarılı | Hatalar |
+|-------|----------|---------|
+| `POST` | `201` enrollment kaydı. Silinmiş kayıt yeniden etkinleşir | `404 Exam type not found`, `409 Already enrolled` |
+| `DELETE` | `{ newActiveExamTypeId: string \| null }`. Silinen aktif sınavsa en eski kayda geçilir | `400 Son kayıtlı sınavınızı silemezsiniz`, `404 Enrollment not found` |
+| `PATCH active-exam` | `{ id, username, email, active_exam_type_id }` | `404 Not enrolled in this exam type` |
 
-> `POST` aktif sınavı değiştirmez; gerekirse ardından `PATCH active-exam` çağrılmalıdır.
+`POST` aktif sınavı değiştirmez, gerekirse ardından `PATCH active-exam` çağrılır. Bu iki endpointte `exam_type_id` sunucuda doğrulanmaz, istemci geçerli bir UUID göndermelidir.
 
 ---
 
-## 9. Mağaza — `/api/store`
+## 12. Mağaza — `/api/store`
 
-### 9.1 Mağaza Ürünleri (Misafir Erişebilir)
-
+### 12.1 Ürünler (Opsiyonel Auth, misafir de görür)
 ```
-GET /api/store/items
-```
-
-**Response:** Aktif ürünler, fiyata göre artan sıralı.
-```typescript
-Array<StoreItem>
+GET /api/store/items      → StoreItem[] (aktif ürünler, fiyata göre artan)
 ```
 
-**Güncel Ürünler (seed):**
-| Ürün | `item_type` | Fiyat | Süre | Not |
-|------|-------------|-------|------|-----|
-| Seri Dondurma 🧊 | `streak_freeze` | 20 | 24 saat | ⚠️ Etkisi henüz uygulanmıyor |
-| Sınırsız Enerji 🔋 | `unlimited_energy` | 40 | 8 saat | Aktif çalışıyor |
-| XP Boost ⚡ | `xp_boost` | 30 | 1 saat | ⚠️ Etkisi henüz uygulanmıyor |
+| Ürün | `item_type` | Fiyat | Süre | Durum |
+|------|-------------|-------|------|-------|
+| Seri Dondurma 🧊 | `streak_freeze` | 20 | 24 saat | ⚠️ Etkisi sunucuda uygulanmıyor |
+| Sınırsız Enerji 🔋 | `unlimited_energy` | 40 | 8 saat | ✅ Çalışıyor |
+| XP Boost ⚡ | `xp_boost` | 30 | 1 saat | ⚠️ Etkisi sunucuda uygulanmıyor |
 | 5 Enerji | `energy_refill` | 15 | — | `metadata.energy_count = 5` |
 | 15 Enerji | `energy_refill` | 35 | — | `metadata.energy_count = 15` |
 | 25 Enerji (Tam Doldur) | `energy_refill` | 50 | — | `metadata.energy_count = 25` |
 
----
+**Misafir görünümü:**
+- Ürünler listelenir ve üstte "Profil Oluştur" banner'ı gösterilir.
+- Yalnızca `energy_refill` ürünleri yerel palamutla alınabilir (10.4). Diğerleri devre dışıdır.
+- Envanter, efektler ve palamut paketleri gizlenir.
 
-### 9.2 Envanter (Auth Gerekli)
-
+### 12.2 Envanter (Auth)
 ```
 GET /api/store/inventory
 ```
-
-**Response:**
 ```typescript
-Array<{
-  id: string;
-  item_id: string;
-  quantity: number;          // 0 olabilir (kullanılmış ürünler listede kalır)
-  purchased_at: string;
-  name: string;
-  description: string;
-  icon_url: string;
-  item_type: string;
-  duration_hours: number | null;
-}>
+Array<{ id: string; item_id: string; quantity: number /* 0 olabilir */; purchased_at: string;
+        name: string; description: string; icon_url: string; item_type: string; duration_hours: number | null }>
 ```
 
----
-
-### 9.3 Aktif Efektler (Auth Gerekli)
-
+### 12.3 Aktif Efektler (Auth)
 ```
-GET /api/store/effects
+GET /api/store/effects   → Array<{ item_type: "streak_freeze" | "unlimited_energy" | "xp_boost"; expires_at: string }>
 ```
 
-**Response:** Süresi dolmamış efektler.
-```typescript
-Array<{
-  item_type: "streak_freeze" | "unlimited_energy" | "xp_boost";
-  expires_at: string;    // ISO 8601
-}>
+### 12.4 Satın Alma (Auth)
 ```
-
----
-
-### 9.4 Satın Alma (Auth Gerekli)
-
+POST /api/store/purchase       (201)
+Body: { itemId: uuid; quantity?: number /* 1-10, default 1 */ }
 ```
-POST /api/store/purchase
+- **Response:** `{ balance: number; spent: number; item: string; energy?: number }`. `energy` yalnızca `energy_refill` için gelir ve yeni enerji değeridir.
+- `energy_refill` anında uygulanır, envantere girmez. Enerji en fazla 25 olur.
+- Süreli ürünler envantere eklenir ve 12.5 ile etkinleştirilir.
+- **Hatalar:** `404 Item not found`, `400 Insufficient acorn balance`
+
+### 12.5 Etkinleştirme (Auth)
 ```
-
-**Request Body:**
-```typescript
-{
-  itemId: string;     // UUID
-  quantity?: number;  // 1-10, default: 1
-}
+POST /api/store/activate/:itemId      // itemId = store_items.id (envanterdeki item_id)
 ```
+- **Response:** `{ itemType: string; expiresAt: string }`
+- Envanterden 1 adet düşer. Aynı tipte aktif efekt varsa süre **uzatılmaz**, şimdiden başlayan yeni süreyle değiştirilir.
+- **Hatalar:**
+  - `404 Item not found in inventory or quantity is 0`
+  - `400 This item cannot be activated` (süresiz ürün)
 
-**Response (201):**
-```typescript
-{
-  balance: number;    // Güncel acorn bakiyesi
-  spent: number;      // Harcanan acorn
-  item: string;       // Ürün adı
-  energy?: number;    // Sadece energy_refill için — yeni enerji değeri
-}
-```
-
-**İş Kuralları:**
-- `energy_refill` anında uygulanır (envantere girmez), enerji 25 ile sınırlanır.
-- Süreli ürünler envantere eklenir; kullanmak için 9.5 ile aktifleştirilmelidir.
-
-**Hata Kodları:** `404` (`Item not found`), `400` (`Insufficient acorn balance`)
-
----
-
-### 9.5 Eşya Aktifleştirme (Auth Gerekli)
-
-```
-POST /api/store/activate/:itemId      // itemId = store_items.id (inventory'deki item_id)
-```
-
-**Response:**
-```typescript
-{
-  itemType: string;
-  expiresAt: string;   // ISO 8601 — şimdi + duration_hours
-}
-```
-
-- Envanterden 1 adet düşer.
-- Aynı tipte aktif efekt varsa süre **uzatılmaz**, yeni bitiş zamanıyla **değiştirilir**.
-
-**Hata Kodları:** `404` (envanterde yok / adet 0), `400` (`This item cannot be activated` — süresiz ürün)
-
----
-
-### 9.6 Acorn Paketleri (Auth Gerekli)
-
+### 12.6 Palamut Paketleri (Auth)
 ```
 GET /api/store/acorn-packages
+→ [{ id: "pkg_50", amount: 50, label: "50 Acorn" }, { id: "pkg_150", ... }, { id: "pkg_500", ... }]
 ```
-
-**Response:**
-```typescript
-Array<{
-  id: "pkg_50" | "pkg_150" | "pkg_500";
-  amount: number;
-  label: string;   // "50 Acorn"
-}>
-```
-
-> Sadece statik liste döner — gerçek para ile satın alma (IAP) endpoint'i **yoktur**. Mobilde App Store / Google Play IAP eklenecekse backend tarafında makbuz doğrulama endpoint'i yazılmalıdır.
+Yalnızca statik bir liste döner, **gerçek parayla satın alma endpoint'i yoktur**. Web istemcisi "Payment system coming soon!" mesajı gösterir. Mobilde App Store / Google Play IAP eklenecekse backend'e makbuz doğrulama endpoint'i yazılmalıdır.
 
 ---
 
-## 10. Liderlik Tablosu — `/api/leaderboard`
+## 13. Liderlik Tablosu — `/api/leaderboard`
 
 ```
-GET /api/leaderboard?league=bronze
-Authorization: Bearer <token>
+GET /api/leaderboard?league=bronze        (auth)
 ```
-
-**Parametreler:**
-- `league`: `"bronze"` | `"silver"` | `"gold"` | `"diamond"` — default: `bronze` (geçersiz değer → `400`)
-
-**Response:**
-```typescript
-Array<{
-  username: string;
-  avatar_url: string | null;
-  xp_earned: number;
-  rank: number | null;
-}>
-// Bu haftanın (Pazartesi başlangıçlı) kayıtları, xp_earned'e göre azalan, max 30
-```
-
-> ⚠️ `leaderboard` tablosunu dolduran bir iş henüz yok; endpoint şu an **boş dizi** döner. UI boş durumu desteklemelidir.
+- `league`: `bronze | silver | gold | diamond`, varsayılan `bronze`. Geçersiz değer `400 Invalid league value` döner.
+- **Response:** `Array<{ username: string; avatar_url: string | null; xp_earned: number; rank: number | null }>`. Bu haftanın kayıtlarını (Pazartesi başlangıçlı) `xp_earned` değerine göre azalan sırayla döner, en fazla 30.
+- ⚠️ Tabloyu dolduran bir işlem yoktur, endpoint şu an **boş dizi** döner. Arayüz boş durumu desteklemelidir. Misafire bunun yerine kayıt çağrısı gösterilir.
 
 ---
 
-## 11. Arkadaşlık — `/api/friends`
+## 14. Arkadaşlık — `/api/friends`
 
 Tüm endpointler auth gerektirir.
-
 ```
 GET    /api/friends              → Arkadaş listesi
 GET    /api/friends/requests     → Bana gelen bekleyen istekler
-POST   /api/friends/request      Body: { "username": "string" }
+POST   /api/friends/request      Body: { "username": "string" }          (201)
 PATCH  /api/friends/:id          Body: { "action": "accept" | "reject" }   (:id = friendship_id)
 DELETE /api/friends/:id          → Arkadaşlıktan çıkar (:id = friendship_id)
 ```
-
-**GET /api/friends Response:**
 ```typescript
-Array<{
-  friendship_id: string;
-  user_id: string;
-  username: string;
-  avatar_url: string | null;
-  xp: number | null;
-  level: number | null;
-  current_streak: number | null;
-  friends_since: string;
-}>
+// GET /api/friends
+Array<{ friendship_id: string; user_id: string; username: string; avatar_url: string | null;
+        xp: number | null; level: number | null; current_streak: number | null; friends_since: string }>
+// GET /api/friends/requests
+Array<{ friendship_id: string; user_id: string /* gönderen */; username: string; avatar_url: string | null; requested_at: string }>
 ```
-
-**GET /api/friends/requests Response:**
-```typescript
-Array<{
-  friendship_id: string;
-  user_id: string;          // İsteği gönderen
-  username: string;
-  avatar_url: string | null;
-  requested_at: string;
-}>
-```
-
-**Diğer Yanıtlar:**
-- `POST request` → `201` + friendship kaydı. Alıcıya `friend_request` bildirimi oluşturulur.
-- `PATCH` accept → `{ message: "Friend request accepted" }`, gönderene `friend_accepted` bildirimi.
-- `PATCH` reject → `{ message: "Friend request rejected" }` — kayıt **silinir**.
-- `DELETE` → `{ message: "Friend removed" }`
-
-**Hata Kodları:**
-- `404` — Kullanıcı / bekleyen istek / arkadaşlık bulunamadı
-- `400` — Kendine istek, zaten arkadaş, zaten bekleyen istek var
-
-**Friendship Status:** `0` = Beklemede, `1` = Kabul edildi (reddedilen istekler silindiği için başka değer yoktur)
+- **İstek gönderme (`POST request`):** `201` ve friendship kaydı döner. Alıcıya `friend_request` bildirimi düşer.
+- **Kabul (`PATCH` accept):** `{ message: "Friend request accepted" }` döner. Gönderene `friend_accepted` bildirimi düşer.
+- **Ret (`PATCH` reject):** `{ message: "Friend request rejected" }` döner ve kayıt silinir.
+- **Silme (`DELETE`):** `{ message: "Friend removed" }` döner.
+- **Hatalar:**
+  - `404`: `User not found`, `Pending request not found`, `Friendship not found`
+  - `400`: `Cannot send friend request to yourself`, `Already friends`, `Friend request already exists`
+- `status` alanı `0` ise beklemede, `1` ise kabul edilmiş demektir.
 
 ---
 
-## 12. Bildirimler — `/api/notifications`
+## 15. Bildirimler — `/api/notifications`
 
 Tüm endpointler auth gerektirir.
-
 ```
-GET   /api/notifications?page=1&limit=20   → Sayfalı bildirim listesi
-GET   /api/notifications/unread-count      → { "count": number }
-PATCH /api/notifications/:id/read          → { "message": "Marked as read" }
-POST  /api/notifications/read-all          → { "marked": number }
+GET   /api/notifications?page=1&limit=20   → { notifications: Notification[]; total; page; limit }   (önce okunmamışlar, sonra yeniden eskiye)
+GET   /api/notifications/unread-count      → { count: number }
+PATCH /api/notifications/:id/read          → { message: "Marked as read" }   (404 Notification not found)
+POST  /api/notifications/read-all          → { marked: number }
 ```
-
-**GET Response:**
-```typescript
-{
-  notifications: Array<Notification>;   // Önce okunmamışlar, sonra yeniden eskiye
-  total: number;
-  page: number;
-  limit: number;
-}
-```
-
-**Mevcut Bildirim Tipleri:** `friend_request`, `friend_accepted`
-
-> Push notification altyapısı (FCM/APNs, cihaz token kaydı) **yoktur**; bildirimler sadece uygulama içi listelenir. Mobilde `unread-count` periyodik/odaklanmada sorgulanabilir.
+- Mevcut bildirim tipleri: `friend_request`, `friend_accepted`.
+- Push notification altyapısı (FCM/APNs, cihaz token kaydı) **yoktur**. `unread-count` uygulama ön plana geldiğinde ya da periyodik olarak sorgulanır. `flutter_local_notifications` yalnızca yerel hatırlatmalar için kullanılabilir, ör. "Enerjin doldu".
 
 ---
 
-## 13. Veri Tipleri (TypeScript)
+## 16. Oyun Mekanikleri
 
-### User (Kullanıcı)
+### 16.1 Enerji
+- Maksimum enerji 25'tir. 10 dakikada +1 yenilenir.
+- Sunucu yenilemeyi tembel (lazy) hesaplar: `GET /users/me`, `POST /quiz/start` ve enerji satın alımında.
+- Her yanlış ve atlanmamış cevapta −1 düşer. `unlimited_energy` aktifse düşmez ve enerji 0 iken de quiz başlatılabilir.
+- Enerji 0 iken `POST /quiz/start` 403 döner.
+- **Geri sayım:** Kayıtlı kullanıcıda `next_energy_at` değeri kullanılır. Bu değer geçmişte kalırsa `/users/me` yeniden çağrılır. Misafirde 10.4'teki yerel hesap kullanılır.
+- **Enerji diyaloğu:** Enerji paketleri `/store/items` içindeki `energy_refill` ürünleridir. Kayıtlı kullanıcı `POST /store/purchase` ile, misafir yerel palamutla alır.
+
+### 16.2 Palamut (Acorn)
+
+| Kazanma | Miktar |
+|---------|--------|
+| Quiz doğru cevabı (`skip_rewards: false`) | +1 / doğru |
+| Sandık | +`reward_amount` (içerikte 10) |
+| Başarım | +5 |
+| Yeni hesap | 500 (ya da misafir bakiyesi) |
+| Misafir birleştirme | +`earned_acorns` |
+
+Palamut yalnızca mağazada harcanır. İşlem tipleri: `earned_quiz`, `earned_achievement`, `spent_store`, `guest_sync`.
+
+### 16.3 XP
+- Doğru soruların `point_value` toplamıdır (şu an her soru 1). `user_stats.xp` ve `total_xp` değerlerine eklenir.
+- `level`, `daily_xp` ve `weekly_xp` güncellenmez, `level` her zaman 1 döner. Seviye gösterilecekse istemcide `total_xp` değerinden hesaplanmalıdır.
+- Günlük hedef (`daily_goal_xp`) profilde ayarlanır. Bugünkü XP'yi dönen bir endpoint yoktur.
+
+### 16.4 Seri (Streak)
+- Ödüllü (`skip_rewards: false`) bir quiz bitince güncellenir.
+- Son aktif gün dün ise seri +1 olur, bugün ise değişmez, daha eskiyse 1'e döner.
+- Günler **UTC**'ye göre sayılır. Türkiye saatiyle gün 03:00'te değişir.
+- Seri bir sonraki quiz'e kadar sıfırlanmaz. `last_active_date` dünden eskiyse arayüzde seri **0** gösterilmelidir.
+- `max_streak` tüm zamanların rekorudur.
+
+### 16.5 Başarımlar (Seed)
+
+| İkon | Ad | Koşul (`requirement_type`) |
+|------|----|-----------------------------|
+| 🎯 | Nişancı | Bir testte %85+ doğruluk (`quiz_accuracy`) |
+| 🌟 | Mükemmeliyetçi | Bir testte tüm sorular doğru (`quiz_perfect`) |
+| 🌱 | İlk Adım | 1 test tamamla (`quizzes_completed`) |
+| 📚 | Hızlı Öğrenci | 10 test tamamla (`quizzes_completed`) |
+| 🏆 | Çalışkan | 50 test tamamla (`quizzes_completed`) |
+| 🔥 | Azimli | 7 gün seri (`streak_days`) |
+| ⚡ | Tutkulu | 30 gün seri (`streak_days`) |
+
+Yeni kazanılan başarımı göstermek için `finish-bulk` öncesi ve sonrası `GET /users/me/achievements` karşılaştırılabilir.
+
+---
+
+## 17. Veri Tipleri
+
 ```typescript
-interface User {
-  id: string;                      // UUID
-  email: string;
-  username: string;
-  password_hash: string;           // Backend — client'a gönderilmez
-  avatar_url: string | null;
-  daily_goal_xp: number;           // Default: 50
-  energy: number;                  // 0-25
-  energy_refreshed_at: string;     // ISO 8601
-  active_exam_type_id: string | null;
-  acorn_balance: number;           // >= 0
-  role_id: string;                 // UUID → roles.id
-  created_at: string;
-}
-```
+interface ExamGroup { id: string; name: string; slug: string; description: string; sort_order: number; is_active: boolean }
+interface ExamType  { id: string; exam_group_id: string; name: string; slug: string; description: string; sort_order: number; is_active: boolean }
 
-### ExamGroup / ExamType
-```typescript
-interface ExamGroup {
-  id: string;
-  name: string;       // "KPSS"
-  slug: string;       // "kpss"
-  description: string;
-  sort_order: number;
-  is_active: boolean;
-}
+interface Module { id: string; exam_type_id: string; name: string; description: string; icon_url: string; sort_order: number; is_active: boolean; created_at: string }
 
-interface ExamType {
-  id: string;
-  exam_group_id: string;
-  name: string;       // "KPSS Lisans"
-  slug: string;       // "lisans"
-  description: string;
-  sort_order: number;
-  is_active: boolean;
-}
-```
+interface Course { id: string; name: string; description: string; icon_url: string; color: string /* hex */; sort_order: number; exam_type_id: string | null; module_id: string | null }
 
-### Module (Modül / Oturum)
-```typescript
-interface Module {
-  id: string;
-  exam_type_id: string;
-  name: string;         // "Genel Yetenek" | "Genel Kültür"
-  description: string;
-  icon_url: string;     // Emoji
-  sort_order: number;
-  is_active: boolean;
-  created_at: string;
-}
-```
-
-### Course (Ders)
-```typescript
-interface Course {
-  id: string;
-  name: string;           // "Türkçe"
-  description: string;
-  icon_url: string;       // Emoji
-  color: string;          // "#3b82f6"
-  sort_order: number;
-  exam_type_id: string | null;
-  module_id: string | null;
-}
-```
-
-### Topic (Konu)
-```typescript
 interface Topic {
-  id: string;
-  course_id: string;
-  name: string;
-  description: string;
-  icon_url: string;
-  sort_order: number;
-  total_lessons: number;        // Default: 5
-  max_crown_level: number;      // Default: 5
-  unlock_after: string | null;  // Şu an kullanılmıyor
-  status: "pending" | "approved";   // Public API sadece approved döner (reddedilen konu silinir)
-  created_by: string | null;
+  id: string; course_id: string; name: string; description: string; icon_url: string; sort_order: number;
+  total_lessons: number; max_crown_level: number; unlock_after: string | null /* kullanılmıyor */;
+  status: "pending" | "approved"; created_by: string | null;
 }
-```
 
-### Step (Adım)
-```typescript
 interface Step {
-  id: string;
-  topic_id: string;
-  name: string;
-  description: string;
-  sort_order: number;
-  tests_required: number;
-  step_type: "lesson" | "reward";
-  reward_type: "acorn" | "store_item" | null;
-  reward_amount: number | null;
-  reward_item_id: string | null;
-  created_at: string;
-  updated_at: string;
+  id: string; topic_id: string; name: string; description: string; sort_order: number; tests_required: number;
+  step_type: "lesson" | "reward"; reward_type: "acorn" | "store_item" | null; reward_amount: number | null; reward_item_id: string | null;
+  created_at: string; updated_at: string;
 }
-```
 
-### Test
-```typescript
-interface Test {
-  id: string;
-  step_id: string;
-  sort_order: number;
-  name: string | null;
-  created_at: string;
-}
-```
+interface Test { id: string; step_id: string; sort_order: number; name: string | null; created_at: string }
 
-### Question (Soru)
-```typescript
-type QuestionType =
-  | "multiple_choice"   // Çoktan seçmeli (şu anki tüm içerik)
-  | "true_false"        // Doğru/Yanlış
-  | "fill_blank"        // Boşluk doldurma
-  | "matching"          // Eşleştirme
-  | "ordering"          // Sıralama
-  | "flashcard"         // Kart çevirme
-  | "swipe";            // Kaydırma
-
-type QuestionStatus = "draft" | "pending" | "approved" | "archived";   // Reddedilen/silinen soru "archived" olur
+type QuestionType = "multiple_choice" | "true_false" | "fill_blank" | "matching" | "ordering" | "flashcard" | "swipe";
 
 interface Question {
-  id: string;
-  topic_id: string;
-  question_text: string;           // HTML içerebilir
-  image_url: string | null;        // Web sunucusuna göreli yol
+  id: string; topic_id: string; step_id: string | null; test_id: string | null; sort_order: number;
+  question_text: string;            // HTML, <!--img--> işareti içerebilir
+  image_url: string | null;         // Web sunucusuna göreli yol
   question_type: QuestionType;
-  difficulty: 1 | 2 | 3;           // 1=Kolay, 2=Orta, 3=Zor
-  status: QuestionStatus;          // Quiz'e sadece approved gelir
-  hint: string | null;
-  tags: string[] | null;
-  difficulty_weight: number;       // Default: 1.0
-  created_by: string | null;
-  explanation: string | null;      // HTML içerebilir
-  point_value: number;             // XP değeri — default: 1
-  step_id: string | null;
-  type_data: QuestionTypeData | null;
-  test_id: string | null;
-  sort_order: number;
-  exam_source: string | null;      // Çıkmış soru kaynağı, ör. "2024 KPSS-LİSANS"
-  created_at: string;
-}
-```
-
-### QuestionTypeData
-```typescript
-// fill_blank
-interface FillBlankData {
-  acceptable_answers: string[];   // trim + lowercase karşılaştırılır
+  difficulty: 1 | 2 | 3;            // Kolay / Orta / Zor
+  status: "draft" | "pending" | "approved" | "archived";   // Quiz'e yalnızca approved gelir
+  hint: string | null; tags: string[] | null; difficulty_weight: number;
+  explanation: string | null;       // Düz metin + <sup>/<sub>
+  point_value: number;              // XP — default 1
+  type_data: Record<string, unknown> | null;   // Bkz. 8.7
+  exam_source: string | null;       // "2024 KPSS-LİSANS"
+  created_by: string | null; created_at: string;
 }
 
-// matching — doğru eşleşme: left[i] ↔ right[i]. Client sağ tarafı karıştırıp göstermeli,
-// gönderirken orijinal indexleri kullanmalı.
-interface MatchingData {
-  pairs: Array<{ left: string; right: string }>;
-}
+interface Answer { id: string; question_id: string; answer_text: string /* HTML */; is_correct: boolean }
 
-// ordering
-interface OrderingData {
-  items: Array<{ text: string; position: number }>;
-}
-
-// flashcard: genellikle { front: string, back: string }
-// swipe / true_false: genellikle null (answers kullanılır)
-```
-
-### Answer (Cevap Seçeneği)
-```typescript
-interface Answer {
-  id: string;
-  question_id: string;
-  answer_text: string;     // HTML içerebilir
-  is_correct: boolean;
-}
-```
-
-### QuizSession
-```typescript
 interface QuizSession {
-  id: string;
-  user_id: string;
-  topic_id: string;
-  session_type: "lesson" | "review" | "practice" | "step_final" | "topic_final";
-  step_id: string | null;
-  is_final_test: boolean;
-  test_id: string | null;
-  started_at: string;
-  finished_at: string | null;
-  score: number;                  // Şu an kullanılmıyor (0)
-  xp_earned: number;
-  duration: number | null;        // Saniye
-  total_questions: number;
-  correct_answers: number;
-  energy_lost: number;
+  id: string; user_id: string; topic_id: string; step_id: string | null; test_id: string | null;
+  session_type: "lesson" | "review" | "practice" | "step_final" | "topic_final"; is_final_test: boolean;
+  started_at: string; finished_at: string | null; score: number /* kullanılmıyor */; xp_earned: number;
+  duration: number | null /* sn */; total_questions: number; correct_answers: number; energy_lost: number;
 }
-```
 
-### UserAnswer
-```typescript
-interface UserAnswer {
-  id: string;
-  session_id: string;
-  question_id: string;
-  answer_id: string | null;
-  is_correct: boolean;
-  answered_at: string;
-  time_spent: number | null;     // Milisaniye
-  is_skipped: boolean;
-}
-```
-
-### UserStats
-Bkz. 8.2.
-
-### UserTopicProgress
-```typescript
-interface UserTopicProgress {
-  id: string;
-  user_id: string;
-  topic_id: string;
-  crown_level: number;
-  lessons_completed: number;
-  is_unlocked: boolean;
-  last_practiced_at: string | null;
-  strength: number;
-  next_review_at: string | null;
-}
-// ⚠️ Backend bu tabloya henüz yazmıyor — /courses/:id/full içinde progress hep null gelir.
-```
-
-### UserStepProgress
-```typescript
 interface UserStepProgress {
-  id: string;
-  user_id: string;
-  step_id: string;
-  tests_completed: number;
-  is_step_completed: boolean;
-  step_final_passed: boolean;
-  stars: number;                    // Şu an kullanılmıyor (0)
-  best_score: number;               // 0-100, en iyi doğruluk yüzdesi
-  completed_at: string | null;
-}
-```
-
-### Achievement / UserAchievement
-```typescript
-type AchievementRequirement =
-  | "quiz_accuracy"       // Bir testte >= %X doğruluk
-  | "quiz_perfect"        // Tüm sorular doğru (min X soru)
-  | "quizzes_completed"   // Toplam X test
-  | "streak_days"         // X gün seri
-  | "total_xp"            // Toplam X XP
-  | "friends_count";      // X arkadaş
-
-interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon_url: string;           // Emoji
-  category: string;
-  requirement_type: AchievementRequirement;
-  requirement_value: number;
+  id: string; user_id: string; step_id: string; tests_completed: number; is_step_completed: boolean;
+  step_final_passed: boolean; stars: number /* kullanılmıyor */; best_score: number /* 0-100 */; completed_at: string | null;
 }
 
-interface UserAchievement {
-  id: string;
-  user_id: string;
-  achievement_id: string;
-  earned_at: string;
+interface UserTopicProgress {   // Backend yazmıyor — hep null
+  id: string; user_id: string; topic_id: string; crown_level: number; lessons_completed: number; is_unlocked: boolean;
+  last_practiced_at: string | null; strength: number; next_review_at: string | null;
 }
-```
-
-### StoreItem / UserItem / UserActiveEffect
-```typescript
-type ItemType = "streak_freeze" | "unlimited_energy" | "xp_boost" | "energy_refill";
 
 interface StoreItem {
-  id: string;
-  name: string;
-  description: string;
-  icon_url: string;                 // Emoji
-  price_acorn: number;
-  item_type: ItemType;
-  duration_hours: number | null;    // null = anlık / tek kullanımlık
-  is_active: boolean;
-  metadata: { energy_count?: number } & Record<string, unknown>;
-  created_at: string;
+  id: string; name: string; description: string; icon_url: string; price_acorn: number;
+  item_type: "streak_freeze" | "unlimited_energy" | "xp_boost" | "energy_refill";
+  duration_hours: number | null; is_active: boolean; metadata: { energy_count?: number }; created_at: string;
 }
 
-interface UserItem {
-  id: string;
-  user_id: string;
-  item_id: string;
-  quantity: number;
-  purchased_at: string;
-}
+interface Notification { id: string; user_id: string; type: "friend_request" | "friend_accepted" | string; title: string; body: string | null; is_read: boolean; created_at: string }
 
-interface UserActiveEffect {
-  id: string;
-  user_id: string;
-  item_type: "streak_freeze" | "unlimited_energy" | "xp_boost";
-  expires_at: string;
-  created_at: string;
-}
-```
-
-### LeaderboardEntry
-```typescript
-type League = "bronze" | "silver" | "gold" | "diamond";
-
-interface LeaderboardEntry {
-  id: string;
-  user_id: string;
-  week_start: string;       // YYYY-MM-DD (Pazartesi)
-  xp_earned: number;
-  rank: number | null;
-  league: League;
-}
-```
-
-### Friendship
-```typescript
-interface Friendship {
-  id: string;
-  user_id: string;          // İsteği gönderen
-  friend_id: string;        // İsteği alan
-  created_at: string;
-  status: 0 | 1;            // 0=Beklemede, 1=Kabul
-}
-```
-
-### Notification
-```typescript
-interface Notification {
-  id: string;
-  user_id: string;
-  type: "friend_request" | "friend_accepted" | string;
-  title: string;
-  body: string | null;
-  is_read: boolean;
-  created_at: string;
-}
-```
-
-### AcornTransaction
-```typescript
-type TransactionType =
-  | "earned_quiz"          // Quiz doğruları ve ödül adımları
-  | "earned_achievement"   // Başarım (+5)
-  | "spent_store"          // Mağaza harcaması (negatif)
-  | "guest_sync";          // Misafir acorn aktarımı
-
-interface AcornTransaction {
-  id: string;
-  user_id: string;
-  amount: number;           // Pozitif = kazanıldı, negatif = harcandı
-  type: TransactionType;
-  reference_id: string | null;   // Session / step / achievement / item ID
-  created_at: string;
-}
-```
-
-### QuestionReport
-```typescript
 interface QuestionReport {
-  id: string;
-  question_id: string;
-  user_id: string | null;
+  id: string; question_id: string;
+  user_id: string | null;           // Kayıtlı kullanıcı
+  guest_id: string | null;          // Misafir
   reason: "wrong_answer" | "unclear_question" | "wrong_explanation" | "typo" | "missing_image" | "other";
-  description: string | null;
-  status: "pending" | "reviewed" | "fixed" | "dismissed";
-  admin_note: string | null;
-  resolved_by: string | null;
-  resolved_at: string | null;
-  created_at: string;
-}
-```
-
-### Role & Permission (RBAC)
-```typescript
-interface Role {
-  id: string;
-  name: "admin" | "teacher" | "student";
-  description: string;
-  created_at: string;
-  updated_at: string;
+  description: string | null; status: "pending" | "reviewed" | "fixed" | "dismissed";
+  admin_note: string | null; resolved_by: string | null; resolved_at: string | null; created_at: string;
 }
 
-interface Permission {
-  id: string;
-  name: "view_admin_panel" | "manage_users" | "manage_exams";
-  description: string;
-}
+// Misafir — yalnızca cihazda (Bölüm 10.3)
+interface GuestQuizResult { topicId: string; stepId?: string; testId?: string; correctCount: number; totalQuestions: number }
 ```
 
----
-
-## 14. İçerik Hiyerarşisi
-
+**İçerik hiyerarşisi:**
 ```
-ExamGroup (Sınav Grubu)
-  └── ExamType (Sınav Türü)
-        └── Module (Modül / Oturum)
-              └── Course (Ders)
-                    └── Topic (Konu)
-                          └── Step (Adım)   [lesson | reward]
-                                └── Test           (lesson adımında 1 adet)
-                                      └── Question (Soru)
-                                            └── Answer (Cevap)
+ExamGroup → ExamType → Module → Course → Topic → Step [lesson | reward] → Test → Question → Answer
 ```
-
-**Güncel İçerik (KPSS Lisans):**
+Güncel içerik (KPSS Lisans):
 - **Genel Yetenek:** Türkçe, Matematik
 - **Genel Kültür:** Tarih, Coğrafya, Vatandaşlık
 
-**Örnek:**
-```
-KPSS (ExamGroup)
-  └── KPSS Lisans (ExamType)
-        └── Genel Kültür (Module)
-              └── Tarih (Course)
-                    └── Osmanlı Devleti Kuruluş (Topic)
-                          ├── Adım 1 (lesson, tests_required: 1) → Test 1 → ~10 soru
-                          ├── Adım 2 (lesson) → Test 1 → sorular
-                          ├── Adım 3 (reward, 10 acorn)
-                          └── ...
-```
+Her konuda lesson adımları (her biri 1 test, yaklaşık 10 soru) ve aralarda 10 palamutluk sandıklar bulunur. Konunun sonunda istemci tarafından eklenen bir boss düğümü vardır.
 
 ---
 
-## 15. Temel Uygulama Akışları
+## 18. Hata Formatı ve Kodları
 
-### 15.1 Yeni Kullanıcı Onboarding Akışı
-```
-1. Uygulama açılır → GET /api/exam-groups → Sınav grupları (pasifler "Çok Yakında")
-2. Kullanıcı sınav türü seçer (exam_type_id cihazda saklanır)
-3. Kullanıcı misafir olarak devam edebilir (15.2) veya kayıt olur
-4. Kayıt → POST /api/auth/register (exam_type_id + varsa guest_data, acorn_balance, energy)
-5. JWT token güvenli depolanır (Keychain / Keystore)
-6. GET /api/users/me → profil, enerji, acorn, aktif sınav
-7. Ana sayfa: GET /api/modules?exam_type_id → GET /api/courses?module_id → GET /api/courses/:id/full
-```
-
-### 15.2 Misafir Modu
-```
-Cihazda tutulan misafir durumu (web istemcisindeki karşılığı):
-{
-  examTypeId, examGroupId,
-  quizResults: [{ topicId, stepId, testId, correctCount, totalQuestions }],
-  claimedRewardStepIds: string[],
-  acornBalance: 500 (başlangıç),
-  energyCount: 25 (başlangıç),
-  energyRefreshedAt: number | null    // epoch ms
-}
-
-1. Misafir quiz: GET /api/quiz/guest-start
-2. Doğru/yanlış, enerji düşüşü ve acorn kazancı client-side hesaplanır
-   (her doğru +1 acorn, her yanlış -1 enerji, 10 dakikada +1 enerji)
-3. Ödül adımları client-side açılır (claimedRewardStepIds + acorn eklenir)
-4. Kayıt olurken: guest_data + acorn_balance + energy gönderilir → misafir verisi silinir
-   Mevcut hesaba giriş yaparken: POST /api/auth/merge-guest-progress
-```
-
-### 15.3 Quiz Akışı (Kayıtlı Kullanıcı)
-```
-1. GET /api/courses/:id/full → Konu ve adımlar
-2. Açık bir lesson adımı seç (önceki adım tamamlanmış olmalı — client-side kontrol)
-3. POST /api/quiz/start { topicId, stepId, testId, sessionType: "lesson" }
-   → 403 ise enerji bitti diyaloğu (mağazadan energy_refill önerilir)
-4. Sorular gösterilir; answers[].is_correct ile anlık geri bildirim verilir,
-   cevaplar yerelde biriktirilir, yanlışta enerji UI'da 1 düşürülür
-5. Enerji 0'a düşerse → finish-bulk { answers, skip_rewards: true }
-6. Normal bitiş → POST /api/quiz/:sessionId/finish-bulk { answers, skip_rewards: false }
-   → xp_earned, acorn_earned, correct_answers, step_completed, topic_completed
-7. Ağ hatasında cevapları kuyruğa al, online olunca aynı isteği tekrar gönder (idempotent)
-8. Sonraki adım reward ise → POST /api/quiz/reward/:stepId/claim
-9. Kullanıcı yarıda çıkarsa → finish-bulk { answers: [], skip_rewards: true }
-```
-
-### 15.4 Enerji Sistemi
-```
-- Maksimum: 25
-- Yenilenme: Her 10 dakikada +1 (sunucuda GET /users/me ve quiz start sırasında hesaplanır)
-- Azalma: Her yanlış (atlanmamış) cevapta -1
-- next_energy_at: sonraki +1 zamanı (null = dolu) → geri sayım için kullanılır
-- Enerji 0 → Quiz başlatılamaz (403)
-- unlimited_energy aktifse enerji azalmaz ve 0 iken de quiz başlatılabilir
-- energy_refill satın alınca anında eklenir (max 25)
-```
-
-### 15.5 Acorn (Para Birimi) Sistemi
-```
-Kazanma:
-  - Her doğru cevap → +1 (skip_rewards false ise)
-  - Reward adımı → +reward_amount (içerikte 10)
-  - Her başarım → +5
-  - Yeni hesap → 500 başlangıç (veya misafir bakiyesi)
-
-Harcama:
-  - Mağaza (spent_store)
-
-Efektler:
-  - unlimited_energy: Süre boyunca enerji düşmez ✅
-  - streak_freeze: ⚠️ Sunucuda henüz etkisi yok
-  - xp_boost: ⚠️ Sunucuda henüz etkisi yok
-  - energy_refill: Anında enerji
-```
-
-### 15.6 Seri (Streak) Sistemi
-```
-- Ödüllü (skip_rewards: false) bir quiz bitince güncellenir
-- Son aktif gün dün ise streak +1, bugünse değişmez, daha eskiyse 1'e döner
-- Gün hesabı UTC tarihine göre yapılır
-- Sıfırlama sadece bir sonraki quizde olur — current_streak, gün kaçırılsa da
-  kullanıcı yeni quiz yapana kadar eski değerini gösterir. UI'da last_active_date
-  dünden eskiyse seriyi 0 göstermek önerilir.
-- max_streak: Tüm zamanların rekoru
-```
-
-### 15.7 Liderlik Tablosu
-```
-- Haftalık (Pazartesi başlar), lig bazlı: bronze → silver → gold → diamond
-- Her ligde en fazla 30 kullanıcı
-- ⚠️ Şu an veri üreten bir iş olmadığı için liste boş döner
-```
-
-### 15.8 Başarımlar (Seed)
-| İkon | Ad | Koşul |
-|------|----|-------|
-| 🎯 | Nişancı | Bir testte %85+ doğruluk |
-| 🌟 | Mükemmeliyetçi | Bir testte tüm sorular doğru |
-| 🌱 | İlk Adım | 1 test tamamla |
-| 📚 | Hızlı Öğrenci | 10 test tamamla |
-| 🏆 | Çalışkan | 50 test tamamla |
-| 🔥 | Azimli | 7 gün seri |
-| ⚡ | Tutkulu | 30 gün seri |
-
----
-
-## 16. Hata Formatı ve Kodları
-
-| HTTP Kodu | Anlam |
-|-----------|-------|
-| 400 | Geçersiz istek / validasyon / iş kuralı ihlali |
-| 401 | Token yok, geçersiz veya süresi dolmuş; hatalı kimlik bilgisi |
-| 403 | Yetki yok, enerji bitti, önceki adım tamamlanmamış |
+| Kod | Anlam |
+|-----|-------|
+| 400 | Validasyon veya iş kuralı ihlali |
+| 401 | Token yok, geçersiz ya da süresi dolmuş (`Authorization token required` / `Invalid or expired token`) veya hatalı kimlik bilgisi |
+| 403 | Enerji bitti, önceki adım tamamlanmamış, yetki yok |
 | 404 | Kaynak bulunamadı |
-| 409 | Çakışma (email/username kullanımda, zaten kayıtlı, tekrar şikayet) |
-| 429 | Rate limit aşıldı |
-| 500 | Sunucu hatası (`Internal server error`) |
-| 503 | Health check — DB bağlantısı yok |
+| 409 | Çakışma: e-posta/kullanıcı adı kullanımda, zaten kayıtlı, tekrar bildirim |
+| 429 | Rate limit |
+| 500 | `Internal server error` |
+| 503 | Health check: veritabanı yok |
 
-**İş kuralı hataları:**
+**İş kuralı hatası:**
 ```json
 { "error": "Hata mesajı" }
 ```
 
-**Validasyon (Zod) hataları — farklı format:**
+**Validasyon (Zod) hatası:** Alan hataları `errors.properties.<alan>.errors[]` altındadır.
 ```json
-{
-  "errors": {
-    "errors": [],
-    "properties": {
-      "password": { "errors": ["Password must be at least 6 characters"] }
-    }
-  }
-}
+{ "errors": { "errors": [], "properties": { "password": { "errors": ["Password must be at least 6 characters"] } } } }
 ```
+> Web istemcisi bu formatı yanlış okuyor (`_errors` arıyor). Mobilde yukarıdaki yol kullanılmalıdır.
 
-**Rate limit:**
-```json
-{ "error": "Too many requests, please try again later" }
-```
-
-> Hata mesajları Türkçe ve İngilizce karışıktır. Kullanıcıya gösterilecek metinler için HTTP koduna göre client-side mesaj eşlemesi önerilir.
+Hata mesajları Türkçe ve İngilizce karışıktır. Kullanıcıya gösterilecek metinler HTTP koduna ve endpoint'e göre istemcide eşlenmelidir.
 
 ---
 
-## 17. Bilinen Kısıtlar / Henüz Uygulanmamış Özellikler
+## 19. Bilinen Kısıtlar ve Backend Hataları
 
-Mobil geliştirmede UI'ın bunlara göre tasarlanması veya backend'e iş açılması gerekir:
+Arayüz bunlara göre tasarlanmalı ya da backend'e iş açılmalıdır.
 
-| Konu | Durum |
-|------|-------|
-| `xp_boost` ve `streak_freeze` efektleri | Satın alınıp aktifleştirilebilir ama XP/streak hesabında kullanılmıyor |
-| Liderlik tablosu | Tabloyu dolduran iş yok → hep boş |
-| `user_topic_progress` (taç, strength, review) | Hiç yazılmıyor → `progress` hep `null` |
-| `level`, `daily_xp`, `weekly_xp` | Güncellenmiyor |
-| `stars`, `session.score` | Kullanılmıyor (0) |
-| Adım geçme barajı | Yok — testi bitirmek adımı tamamlar |
-| Kilit sistemi | Sunucu tarafında zorlanmıyor (client-side) |
-| `friends_count` başarımı | Sorgu metin statü ile karşılaştırıyor, pratikte hiç kazanılmıyor |
-| Tüm başarım listesi endpoint'i | Yok |
-| Push notification / cihaz token | Yok |
-| Acorn IAP satın alma | Yok (sadece paket listesi) |
-| Refresh token / logout endpoint | Yok |
-| Avatar yükleme | Yok — sadece `avatarUrl` (URL) kaydedilebilir |
-| Hesap silme | Kullanıcı tarafı endpoint yok (App Store gereksinimi — eklenmeli) |
-
----
-
-## 18. Güvenlik & Teknik Notlar
-
-- **HTTPS** zorunludur (prodüksiyonda nginx + Let's Encrypt).
-- **JWT** 7 gün geçerli, refresh yok.
-- **CORS:** Prodüksiyonda `ALLOWED_ORIGINS` ile kısıtlı. Native mobil istemciler `Origin` header'ı göndermediği için etkilenmez; WebView tabanlı istemcilerde origin whitelist'e eklenmelidir.
-- **Rate Limiting:** `/api/auth/*` → dakikada 10 istek / IP.
-- **Body limiti:** JSON max 1MB.
-- **Şifre hashing:** bcrypt, 12 round.
-- **ID'ler:** UUID (PostgreSQL `gen_random_uuid()`).
-- **Zaman damgaları:** ISO 8601 (UTC). Tarih alanları (`last_active_date`, `week_start`) `YYYY-MM-DD`.
-- **RBAC:** `permissions` dizisi `/users/me` ve login yanıtında gelir.
-- **Doğru cevaplar client'a gönderilir** (`answers[].is_correct`) — ödüller sunucuda yeniden doğrulanır ama cevap anahtarı istemcide görünürdür.
+| Konu | Durum | Mobilde ne yapılmalı |
+|------|-------|----------------------|
+| Enerji yenilenmesi | **Düzeltildi:** Enerji 25'ten düşerken yenilenme sayacı artık o andan başlıyor. Eskiden uzun süre dolu kalan kullanıcının harcadığı enerji anında geri geliyordu. Düzeltme yayına alınmadan önceki sunucularda `next_energy_at` geçmişte kalabilir | `next_energy_at` geçmişteyse `/users/me`'yi yeniden çağırın |
+| `xp_boost`, `streak_freeze` | Satın alınıp etkinleştirilebiliyor ama hiçbir etkisi yok | Açıklamada belirtin ya da satışı gizleyin |
+| Liderlik tablosu | Dolduran bir işlem yok, hep boş | Boş durum ekranı |
+| `user_topic_progress` | Hiç yazılmıyor | Konu ilerlemesini adımlardan hesaplayın |
+| `level`, `daily_xp`, `weekly_xp`, `stars`, `score` | Güncellenmiyor | İstemcide hesaplayın veya göstermeyin |
+| Adım geçme barajı | Yok, testi bitirmek yeterli | — |
+| Kilit sistemi | Yalnızca istemcide | 6.4'ü uygulayın |
+| Misafir boss sınavı | `guest-start` `sessionType`'ı yok sayıyor, 15 yerine 10 rastgele soru geliyor | — |
+| `friends_count` başarımı | Sorgu durum değerini metin olarak (`"accepted"`) arıyor, oysa değer sayı (`1`). Asla kazanılmıyor | — |
+| Kayıtta `acorn_balance` | Sunucu istemcinin gönderdiği değere güveniyor | — |
+| Misafir verisi aktarımı | Tek bir geçersiz adım ID'si tüm aktarımı iptal ediyor | Göndermeden önce filtreleyin (10.8) |
+| Tüm başarımlar listesi | Endpoint yok | İstemcide sabit liste |
+| Push notification | Yok | `unread-count` sorgusu |
+| Palamut satın alma (IAP) | Yok | "Yakında" |
+| Refresh token, logout, hesap silme | Yok. **Hesap silme App Store için zorunludur**, backend'e eklenmeli | — |
+| Avatar yükleme | Yok, yalnızca URL kaydedilebiliyor | — |
 
 ---
 
-## 19. Admin Panel API'leri (Referans)
+## 20. Güvenlik ve Teknik Notlar
 
-Tüm `/api/admin/*` endpointleri `view_admin_panel` yetkisi gerektirir; yazma işlemleri ek olarak belirtilen yetkiyi ister. Mobil uygulama için gerekli değildir.
+- **HTTPS** zorunludur. Prodüksiyonda nginx ve Let's Encrypt kullanılır.
+- **CORS:** Native istemciler `Origin` başlığı göndermediği için etkilenmez. WebView tabanlı ekranlarda origin'in izin listesine eklenmesi gerekir.
+- **Rate limit:** IP bazlıdır (1.2). Sunucu nginx arkasında gerçek istemci IP'sini görür.
+- **Body limiti:** JSON için en fazla 1 MB.
+- **Şifreler** bcrypt (12 tur) ile saklanır.
+- **ID'ler** UUID'dir. Misafir `guestId` değeri de UUID v4 olmalıdır, aksi halde 400 döner.
+- **Zaman:** Damgalar ISO 8601 (UTC) formatındadır. Tarih alanları (`last_active_date`, `week_start`, `streak_history.date`) `YYYY-MM-DD` biçimindedir.
+- **RBAC:** `permissions` dizisi login ve `/users/me` yanıtlarında gelir. Mobilde admin özelliği yoktur.
+- **Doğru cevaplar istemciye gönderilir.** Ödüller sunucuda yeniden doğrulanır, ama cevap anahtarı istemcide görünür durumdadır.
+- **Token** yalnızca secure storage'da tutulur ve loglara yazılmaz.
+
+---
+
+## 21. Admin API'leri (Referans)
+
+`/api/admin/*` için `view_admin_panel` yetkisi gerekir. Bazı yazma işlemleri `manage_exams` veya `manage_users` yetkisi de ister. **Mobil uygulamada kullanılmaz.**
 
 | Endpoint | Ek Yetki |
 |----------|----------|
@@ -1675,24 +1220,51 @@ Tüm `/api/admin/*` endpointleri `view_admin_panel` yetkisi gerektirir; yazma i�
 | `POST/PATCH/DELETE /admin/exam-groups`, `/admin/exam-types` | `manage_exams` |
 | `GET /admin/courses`, `/admin/modules`, `/admin/topics`, `/admin/steps`, `/admin/tests` | — |
 | `POST/PATCH/DELETE` courses, modules, topics; `POST/DELETE` steps, tests | `manage_exams` |
-| `GET /admin/stats` | — |
+| `GET /admin/stats` (`pending_reports` = bekleyen bildirimi olan **soru** sayısı) | — |
 | `GET /admin/pending`, `POST /admin/questions/:id/approve\|reject`, `POST /admin/topics/:id/approve\|reject` | `manage_exams` |
-| `GET /admin/reports`, `GET /admin/reports/stats`, `PATCH /admin/reports/:id` | — |
-| `GET /admin/users` | — |
+| `GET /admin/reports/groups`: soru bazlı gruplanmış bildirimler (`status`, `report_count`, `guest_count`, `reasons`) | — |
+| `GET /admin/reports?questionId=`: bir sorunun bildirimleri; `GET /admin/reports/stats`: durum başına soru sayısı | — |
+| `PATCH /admin/reports/question/:questionId`: durum ve notu sorunun tüm bildirimlerine uygular | — |
+| `PATCH /admin/reports/:id`: tek bildirim (eski) | — |
+| `GET /admin/users`, `GET /admin/roles` | — |
 | `POST /admin/users`, `GET/PATCH/DELETE /admin/users/:id`, `PATCH /admin/users/:id/role` | `manage_users` |
-| `GET /admin/roles` | — |
 
 ---
 
-## 20. Önerilen Mobile App Geliştirme Sırası
+## 22. Geliştirme Sırası ve Mevcut Durum
 
-1. **Altyapı** — API client, token saklama, hata formatı eşleme, offline quiz kuyruğu
-2. **Onboarding** — Sınav grubu/türü seçimi, misafir modu
-3. **Auth Ekranları** — Giriş, Kayıt (guest_data aktarımı), Şifre Sıfırlama (deep link)
-4. **Ana Sayfa** — Profil, enerji geri sayımı, modül/ders seçimi
-5. **Ders Haritası** — Adım yolu, kilit mantığı, ödül sandıkları (`GET /courses/:id/full`)
-6. **Quiz Akışı** — HTML soru render, görsel, açıklama, enerji, toplu bitirme, sonuç ekranı
-7. **Profil & İstatistikler** — XP, seri haftası, başarımlar, profil düzenleme, sınav kayıtları
-8. **Mağaza** — Ürünler, satın alma, envanter, efekt aktifleştirme
-9. **Arkadaşlık & Bildirimler**
-10. **Liderlik Tablosu** — Backend verisi hazır olduğunda
+Mevcut mobil projede ekran iskeletleri ve repository'ler var. Aşağıdaki sıra hem yeni hem eksik işler için önerilir:
+
+1. **Altyapı**
+   - API istemcisi: token ekleme, 401'de misafire dönüş, iki hata formatını ayrıştırma
+   - Yapılandırma: `API_BASE_URL` ve `WEB_BASE_URL` ayrı değerler
+   - Offline quiz kuyruğu (Hive + `connectivity_plus`)
+2. **Misafir modu altyapısı (Bölüm 10)**
+   - GuestState, `guestId`, enerji yenilenmesi, palamut, overlay
+   - Router'da misafir kuralları
+3. **Onboarding**
+   - Splash mantığı (3.8)
+   - Sınav grubu ve türü seçimi
+   - Misafir olarak başlama
+4. **Ders haritası**
+   - Modül ve ders seçimi, `/courses/:id/full`
+   - Düğüm durumları: lesson, sandık, boss (6.4)
+   - Sandık açma: üye ve misafir
+5. **Quiz**
+   - HTML render ve `<!--img-->` yerleşimi (Bölüm 8)
+   - Cevap paneli, enerji diyaloğu
+   - Üye için `finish-bulk`, misafir için yerel sonuç
+   - Sonuç ekranı ve kayıt duvarı
+   - Hatalı soru bildirimi: üye ve misafir endpoint'leri
+6. **Auth**
+   - Giriş ve misafir birleştirme (10.9)
+   - Kayıt ve misafir aktarımı (10.8)
+   - Şifre sıfırlama (deep link)
+7. **Profil ve istatistikler**
+   - XP, seri haftası, başarımlar
+   - Profil düzenleme, sınav kayıtları
+8. **Mağaza**
+   - Ürünler, satın alma, envanter, efektler
+   - Misafirin enerji alması
+9. **Arkadaşlık ve bildirimler**
+10. **Liderlik tablosu** (backend verisi hazır olduğunda)
