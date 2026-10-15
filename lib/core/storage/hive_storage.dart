@@ -1,36 +1,46 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-const _quizBufferBox = 'quiz_buffer';
+/// Quiz sessions whose `finish-bulk` request failed, keyed by session ID.
+/// Web equivalent: localStorage `pb_pending_quiz`.
+const _pendingQuizBox = 'pending_quiz';
+
+/// Guest-mode state (docs 10.3). Web equivalent: localStorage `guestState`
+/// and `guestId`.
+const _guestBox = 'guest';
+
+/// Small UI preferences, e.g. the selected module / course on the lesson map
+/// (web: localStorage `pb_selectedModuleId`, `pb_selectedCourseId`).
+const _prefsBox = 'prefs';
 
 final hiveStorageProvider = Provider<HiveStorage>((ref) {
-  return HiveStorage();
+  throw UnimplementedError('Override hiveStorageProvider in main().');
 });
 
 class HiveStorage {
-  Box<Map<dynamic, dynamic>>? _quizBox;
+  Box<String>? _pendingQuiz;
+  Box<String>? _guest;
+  Box<String>? _prefs;
 
   Future<void> init() async {
     await Hive.initFlutter();
-    _quizBox = await Hive.openBox<Map<dynamic, dynamic>>(_quizBufferBox);
+    _pendingQuiz = await Hive.openBox<String>(_pendingQuizBox);
+    _guest = await Hive.openBox<String>(_guestBox);
+    _prefs = await Hive.openBox<String>(_prefsBox);
   }
 
-  Box<Map<dynamic, dynamic>> get quizBox {
-    assert(_quizBox != null, 'HiveStorage not initialized. Call init() first.');
-    return _quizBox!;
+  Box<String> get prefsBox {
+    assert(_prefs != null, 'HiveStorage not initialized.');
+    return _prefs!;
   }
 
-  Future<void> addBufferedAnswer(Map<String, dynamic> answer) async {
-    await quizBox.add(answer);
+  Box<String> get guestBox {
+    assert(_guest != null, 'HiveStorage not initialized.');
+    return _guest!;
   }
 
-  List<Map<String, dynamic>> getBufferedAnswers() {
-    return quizBox.values
-        .map(Map<String, dynamic>.from)
-        .toList();
-  }
-
-  Future<void> clearBufferedAnswers() async {
-    await quizBox.clear();
+  Box<String> get pendingQuizBox {
+    assert(_pendingQuiz != null, 'HiveStorage not initialized.');
+    return _pendingQuiz!;
   }
 }

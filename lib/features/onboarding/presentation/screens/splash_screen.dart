@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
-import 'package:pracby_mobile/core/storage/secure_storage.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -26,36 +27,33 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     _controller.forward();
     _navigateAfterDelay();
   }
 
+  /// Launch logic (docs 3.8): a valid token goes home, otherwise a guest
+  /// with a chosen exam goes home as guest, otherwise exam selection.
   Future<void> _navigateAfterDelay() async {
     await Future<void>.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    final token = await ref.read(secureStorageProvider).getToken();
+    // AuthNotifier.build already called /users/me (and dropped a 401 token).
+    final user = await ref
+        .read(authStateProvider.future)
+        .then<UserModel?>((u) => u)
+        .catchError((Object _) => null);
     if (!mounted) return;
 
-    if (token == null) {
-      context.go(Routes.welcome);
-    } else {
-      // Try to load user
-      await ref.read(authStateProvider.notifier).refreshUser();
-      if (!mounted) return;
-      final user = ref.read(authStateProvider).valueOrNull;
-      if (user != null) {
-        context.go(Routes.home);
-      } else {
-        context.go(Routes.login);
-      }
-    }
+    final isGuest = ref.read(guestProvider).isActive;
+    context.go(user != null || isGuest ? Routes.home : Routes.welcome);
   }
 
   @override
@@ -102,10 +100,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 const SizedBox(height: 8),
                 const Text(
                   'Sınavlara hazırlanmanın en eğlenceli yolu',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.grey200,
-                  ),
+                  style: TextStyle(fontSize: 14, color: AppColors.grey200),
                 ),
               ],
             ),

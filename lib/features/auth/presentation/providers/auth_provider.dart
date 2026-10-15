@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/core/api/api_client.dart';
 import 'package:pracby_mobile/core/storage/secure_storage.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 
 final authStateProvider =
     AsyncNotifierProvider<AuthNotifier, UserModel?>(AuthNotifier.new);
@@ -9,12 +11,18 @@ final authStateProvider =
 class AuthNotifier extends AsyncNotifier<UserModel?> {
   @override
   Future<UserModel?> build() async {
+    // A 401 on any authenticated request ends the session (docs 2).
+    final sub = ref
+        .read(apiClientProvider)
+        .onUnauthorized
+        .listen((_) => state = const AsyncValue.data(null));
+    ref.onDispose(sub.cancel);
+
     final token = await ref.read(secureStorageProvider).getToken();
     if (token == null) return null;
     try {
       return await ref.read(authRepositoryProvider).getMe();
     } catch (_) {
-      await ref.read(secureStorageProvider).deleteToken();
       return null;
     }
   }
@@ -25,12 +33,14 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final response = await ref.read(authRepositoryProvider).login(
-            identifier: identifier,
-            password: password,
-          );
+      final repo = ref.read(authRepositoryProvider);
+      final response =
+          await repo.login(identifier: identifier, password: password);
       await ref.read(secureStorageProvider).setToken(response.token);
-      return response.user;
+      // Carry guest progress over to the account (docs 10.9).
+      await ref.read(guestProvider.notifier).mergeAfterLogin(repo);
+      // Login response has no energy / acorns / active exam (docs 3.3).
+      return repo.getMe();
     });
   }
 
@@ -38,26 +48,41 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     required String email,
     required String username,
     required String password,
-    String? examTypeId,
-    Map<String, dynamic>? guestData,
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final response = await ref.read(authRepositoryProvider).register(
-            email: email,
-            username: username,
-            password: password,
-            examTypeId: examTypeId,
-            guestData: guestData,
-          );
+      final repo = ref.read(authRepositoryProvider);
+      final guest = ref.read(guestProvider.notifier);
+      final response = await repo.register(
+        email: email,
+        username: username,
+        password: password,
+        examTypeId: ref.read(guestProvider).examTypeId,
+        guestPayload: guest.registrationPayload(),
+      );
       await ref.read(secureStorageProvider).setToken(response.token);
-      return response.user;
+      guest.clear();
+      // Register response has no role / permissions / energy (docs 3.2).
+      return repo.getMe();
     });
   }
 
   Future<void> logout() async {
     await ref.read(secureStorageProvider).deleteToken();
     state = const AsyncValue.data(null);
+  }
+
+  /// Applies balances returned by the API (e.g. a store purchase) without
+  /// refetching `/users/me`.
+  void setBalances({int? energy, int? acorns}) {
+    final user = state.valueOrNull;
+    if (user == null) return;
+    state = AsyncValue.data(
+      user.copyWith(
+        energy: energy ?? user.energy,
+        acorns: acorns ?? user.acorns,
+      ),
+    );
   }
 
   Future<void> refreshUser() async {

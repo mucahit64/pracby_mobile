@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
+import 'package:pracby_mobile/features/auth/presentation/widgets/auth_close_button.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -56,12 +57,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
+      appBar: AppBar(leading: const AuthCloseButton(), leadingWidth: 64),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

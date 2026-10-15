@@ -26,13 +26,13 @@ abstract final class Endpoints {
   // Quiz
   static const String quizStart = '/api/quiz/start';
   static const String quizGuestStart = '/api/quiz/guest-start';
-  static String quizAnswer(String quizId) => '/api/quiz/$quizId/answer';
-  static String quizFinish(String quizId) => '/api/quiz/$quizId/finish';
-  static String quizFinishBulk(String quizId) =>
-      '/api/quiz/$quizId/finish-bulk';
+  static String quizFinishBulk(String sessionId) =>
+      '/api/quiz/$sessionId/finish-bulk';
   static String quizRewardClaim(String stepId) =>
       '/api/quiz/reward/$stepId/claim';
   static const String quizReportQuestion = '/api/quiz/report-question';
+  static const String quizGuestReportQuestion =
+      '/api/quiz/guest-report-question';
 
   // Store
   static const String storeItems = '/api/store/items';

@@ -9,179 +9,72 @@ final quizRepositoryProvider = Provider<QuizRepository>((ref) {
   return QuizRepository(apiClient: ref.watch(apiClientProvider));
 });
 
+/// Parameters that identify a quiz, same as the web route
+/// `/quiz/:topicId?stepId&testId&sessionType`.
+typedef QuizParams = ({
+  String topicId,
+  String? stepId,
+  String? testId,
+  String? sessionType,
+});
+
 class QuizRepository {
   const QuizRepository({required ApiClient apiClient})
       : _apiClient = apiClient;
 
   final ApiClient _apiClient;
 
-  Future<QuizSession> startQuiz({
-    required String stepId,
-    required String topicId,
-    String sessionType = 'lesson',
-    String? testId,
-  }) async {
+  /// `POST /api/quiz/start` (docs 7.2). Returns the session ID and questions.
+  Future<({String sessionId, List<QuestionModel> questions})> start(
+    QuizParams params,
+  ) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       Endpoints.quizStart,
       data: {
-        'topicId': topicId,
-        'stepId': stepId,
-        'sessionType': sessionType,
-        if (testId != null) 'testId': testId,
+        'topicId': params.topicId,
+        if (params.stepId != null) 'stepId': params.stepId,
+        if (params.testId != null) 'testId': params.testId,
+        if (params.sessionType != null) 'sessionType': params.sessionType,
       },
     );
     final data = response.data!;
-    final sessionData = data['session'] as Map<String, dynamic>;
-    final questionList = (data['questions'] as List<dynamic>)
-        .map((q) => QuestionModel.fromJson(q as Map<String, dynamic>))
-        .toList();
-    return QuizSession(
-      id: sessionData['id'] as String,
-      stepId: sessionData['step_id'] as String?,
-      topicId: sessionData['topic_id'] as String?,
-      testId: sessionData['test_id'] as String?,
-      sessionType: sessionData['session_type'] as String? ?? 'lesson',
-      isFinalTest: sessionData['is_final_test'] as bool? ?? false,
-      questions: questionList,
-      totalQuestions: (sessionData['total_questions'] as num?)?.toInt() ??
-          questionList.length,
+    return (
+      sessionId: (data['session'] as Map<String, dynamic>)['id'] as String,
+      questions: _parseQuestions(data['questions']),
     );
   }
 
-  Future<QuizSession> guestStartQuiz({
-    required String topicId,
-    String? stepId,
-    String? testId,
-    String sessionType = 'lesson',
-  }) async {
-    final queryParams = <String, String>{
-      'topicId': topicId,
-      'sessionType': sessionType,
-      if (stepId != null) 'stepId': stepId,
-      if (testId != null) 'testId': testId,
-    };
-    final queryString = queryParams.entries
-        .map((e) => '${e.key}=${e.value}')
-        .join('&');
+  /// `GET /api/quiz/guest-start` (docs 7.1). No session is created.
+  Future<List<QuestionModel>> guestStart(QuizParams params) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '${Endpoints.quizGuestStart}?$queryString',
-    );
-    final data = response.data!;
-    final questionList = (data['questions'] as List<dynamic>)
-        .map((q) => QuestionModel.fromJson(q as Map<String, dynamic>))
-        .toList();
-    return QuizSession(
-      id: 'guest_${DateTime.now().millisecondsSinceEpoch}',
-      questions: questionList,
-      totalQuestions: questionList.length,
-    );
-  }
-
-  Future<Map<String, dynamic>> submitAnswer({
-    required String quizId,
-    required String questionId,
-    required String answerId,
-    required int timeSpent,
-  }) async {
-    final response = await _apiClient.post<Map<String, dynamic>>(
-      Endpoints.quizAnswer(quizId),
-      data: {
-        'questionId': questionId,
-        'answerId': answerId,
-        'timeSpent': timeSpent,
-        'answeredAt': DateTime.now().toIso8601String(),
+      Endpoints.quizGuestStart,
+      queryParameters: {
+        'topicId': params.topicId,
+        if (params.stepId != null) 'stepId': params.stepId,
+        if (params.testId != null) 'testId': params.testId,
+        if (params.sessionType != null) 'sessionType': params.sessionType,
       },
     );
-    return response.data!;
+    return _parseQuestions(response.data!['questions']);
   }
 
-  Future<Map<String, dynamic>> submitTextAnswer({
-    required String quizId,
-    required String questionId,
-    required String textAnswer,
-    required int timeSpent,
-  }) async {
-    final response = await _apiClient.post<Map<String, dynamic>>(
-      Endpoints.quizAnswer(quizId),
-      data: {
-        'questionId': questionId,
-        'textAnswer': textAnswer,
-        'timeSpent': timeSpent,
-        'answeredAt': DateTime.now().toIso8601String(),
-      },
-    );
-    return response.data!;
-  }
-
-  Future<Map<String, dynamic>> submitFlashcardAnswer({
-    required String quizId,
-    required String questionId,
-    required bool isCorrect,
-    required int timeSpent,
-  }) async {
-    final response = await _apiClient.post<Map<String, dynamic>>(
-      Endpoints.quizAnswer(quizId),
-      data: {
-        'questionId': questionId,
-        'isCorrect': isCorrect,
-        'timeSpent': timeSpent,
-        'answeredAt': DateTime.now().toIso8601String(),
-      },
-    );
-    return response.data!;
-  }
-
-  Future<Map<String, dynamic>> submitMatchingAnswer({
-    required String quizId,
-    required String questionId,
-    required List<MatchingAnswerPair> matchingAnswer,
-    required int timeSpent,
-  }) async {
-    final response = await _apiClient.post<Map<String, dynamic>>(
-      Endpoints.quizAnswer(quizId),
-      data: {
-        'questionId': questionId,
-        'matchingAnswer': matchingAnswer.map((p) => p.toJson()).toList(),
-        'timeSpent': timeSpent,
-        'answeredAt': DateTime.now().toIso8601String(),
-      },
-    );
-    return response.data!;
-  }
-
-  Future<Map<String, dynamic>> submitOrderingAnswer({
-    required String quizId,
-    required String questionId,
-    required List<int> orderedIndices,
-    required int timeSpent,
-  }) async {
-    final response = await _apiClient.post<Map<String, dynamic>>(
-      Endpoints.quizAnswer(quizId),
-      data: {
-        'questionId': questionId,
-        'orderedIndices': orderedIndices,
-        'timeSpent': timeSpent,
-        'answeredAt': DateTime.now().toIso8601String(),
-      },
-    );
-    return response.data!;
-  }
-
+  /// `POST /api/quiz/:sessionId/finish-bulk` (docs 7.4). Idempotent.
   Future<QuizFinishResult> finishBulk({
-    required String quizId,
+    required String sessionId,
     required List<QuizAnswer> answers,
     bool skipRewards = false,
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
-      Endpoints.quizFinishBulk(quizId),
+      Endpoints.quizFinishBulk(sessionId),
       data: {
         'answers': answers.map((a) => a.toJson()).toList(),
-        if (skipRewards) 'skip_rewards': true,
+        'skip_rewards': skipRewards,
       },
     );
     return QuizFinishResult.fromJson(response.data!);
   }
 
+  /// `POST /api/quiz/reward/:stepId/claim` (docs 7.7).
   Future<Map<String, dynamic>> claimReward({required String stepId}) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       Endpoints.quizRewardClaim(stepId),
@@ -189,18 +82,29 @@ class QuizRepository {
     return response.data!;
   }
 
+  /// Report a question as a member (docs 9.1) or, with [guestId], as a guest
+  /// (docs 9.2).
   Future<void> reportQuestion({
     required String questionId,
     required String reason,
     String? description,
+    String? guestId,
   }) async {
     await _apiClient.post<Map<String, dynamic>>(
-      Endpoints.quizReportQuestion,
+      guestId == null
+          ? Endpoints.quizReportQuestion
+          : Endpoints.quizGuestReportQuestion,
       data: {
         'questionId': questionId,
         'reason': reason,
-        if (description != null) 'description': description,
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        if (guestId != null) 'guestId': guestId,
       },
     );
   }
+
+  List<QuestionModel> _parseQuestions(Object? raw) => (raw! as List)
+      .map((q) => QuestionModel.fromJson(q as Map<String, dynamic>))
+      .toList();
 }

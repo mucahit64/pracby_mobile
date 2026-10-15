@@ -24,12 +24,14 @@ mixin _$QuestionModel {
   String get id => throw _privateConstructorUsedError;
   @JsonKey(name: 'question_text')
   String get text => throw _privateConstructorUsedError;
-  @JsonKey(name: 'question_type')
+  @JsonKey(name: 'question_type', unknownEnumValue: QuestionType.multipleChoice)
   QuestionType get type => throw _privateConstructorUsedError;
   @JsonKey(name: 'answers')
-  List<AnswerOption>? get options => throw _privateConstructorUsedError;
+  List<AnswerOption> get options => throw _privateConstructorUsedError;
   @JsonKey(name: 'image_url')
   String? get imageUrl => throw _privateConstructorUsedError;
+  @JsonKey(name: 'exam_source')
+  String? get examSource => throw _privateConstructorUsedError;
   String? get explanation => throw _privateConstructorUsedError;
   String? get hint => throw _privateConstructorUsedError;
   int get difficulty => throw _privateConstructorUsedError;
@@ -38,12 +40,7 @@ mixin _$QuestionModel {
   @JsonKey(name: 'sort_order')
   int get sortOrder => throw _privateConstructorUsedError;
   @JsonKey(name: 'type_data')
-  Map<String, dynamic>? get typeData => throw _privateConstructorUsedError; // For fill-in-blank
-  List<String>? get blanks => throw _privateConstructorUsedError;
-  List<String>? get chips =>
-      throw _privateConstructorUsedError; // For flashcard
-  String? get front => throw _privateConstructorUsedError;
-  String? get back => throw _privateConstructorUsedError;
+  Map<String, dynamic>? get typeData => throw _privateConstructorUsedError;
 
   /// Serializes this QuestionModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -65,19 +62,20 @@ abstract class $QuestionModelCopyWith<$Res> {
   $Res call({
     String id,
     @JsonKey(name: 'question_text') String text,
-    @JsonKey(name: 'question_type') QuestionType type,
-    @JsonKey(name: 'answers') List<AnswerOption>? options,
+    @JsonKey(
+      name: 'question_type',
+      unknownEnumValue: QuestionType.multipleChoice,
+    )
+    QuestionType type,
+    @JsonKey(name: 'answers') List<AnswerOption> options,
     @JsonKey(name: 'image_url') String? imageUrl,
+    @JsonKey(name: 'exam_source') String? examSource,
     String? explanation,
     String? hint,
     int difficulty,
     @JsonKey(name: 'point_value') int pointValue,
     @JsonKey(name: 'sort_order') int sortOrder,
     @JsonKey(name: 'type_data') Map<String, dynamic>? typeData,
-    List<String>? blanks,
-    List<String>? chips,
-    String? front,
-    String? back,
   });
 }
 
@@ -99,18 +97,15 @@ class _$QuestionModelCopyWithImpl<$Res, $Val extends QuestionModel>
     Object? id = null,
     Object? text = null,
     Object? type = null,
-    Object? options = freezed,
+    Object? options = null,
     Object? imageUrl = freezed,
+    Object? examSource = freezed,
     Object? explanation = freezed,
     Object? hint = freezed,
     Object? difficulty = null,
     Object? pointValue = null,
     Object? sortOrder = null,
     Object? typeData = freezed,
-    Object? blanks = freezed,
-    Object? chips = freezed,
-    Object? front = freezed,
-    Object? back = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -126,13 +121,17 @@ class _$QuestionModelCopyWithImpl<$Res, $Val extends QuestionModel>
                 ? _value.type
                 : type // ignore: cast_nullable_to_non_nullable
                       as QuestionType,
-            options: freezed == options
+            options: null == options
                 ? _value.options
                 : options // ignore: cast_nullable_to_non_nullable
-                      as List<AnswerOption>?,
+                      as List<AnswerOption>,
             imageUrl: freezed == imageUrl
                 ? _value.imageUrl
                 : imageUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            examSource: freezed == examSource
+                ? _value.examSource
+                : examSource // ignore: cast_nullable_to_non_nullable
                       as String?,
             explanation: freezed == explanation
                 ? _value.explanation
@@ -158,22 +157,6 @@ class _$QuestionModelCopyWithImpl<$Res, $Val extends QuestionModel>
                 ? _value.typeData
                 : typeData // ignore: cast_nullable_to_non_nullable
                       as Map<String, dynamic>?,
-            blanks: freezed == blanks
-                ? _value.blanks
-                : blanks // ignore: cast_nullable_to_non_nullable
-                      as List<String>?,
-            chips: freezed == chips
-                ? _value.chips
-                : chips // ignore: cast_nullable_to_non_nullable
-                      as List<String>?,
-            front: freezed == front
-                ? _value.front
-                : front // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            back: freezed == back
-                ? _value.back
-                : back // ignore: cast_nullable_to_non_nullable
-                      as String?,
           )
           as $Val,
     );
@@ -192,19 +175,20 @@ abstract class _$$QuestionModelImplCopyWith<$Res>
   $Res call({
     String id,
     @JsonKey(name: 'question_text') String text,
-    @JsonKey(name: 'question_type') QuestionType type,
-    @JsonKey(name: 'answers') List<AnswerOption>? options,
+    @JsonKey(
+      name: 'question_type',
+      unknownEnumValue: QuestionType.multipleChoice,
+    )
+    QuestionType type,
+    @JsonKey(name: 'answers') List<AnswerOption> options,
     @JsonKey(name: 'image_url') String? imageUrl,
+    @JsonKey(name: 'exam_source') String? examSource,
     String? explanation,
     String? hint,
     int difficulty,
     @JsonKey(name: 'point_value') int pointValue,
     @JsonKey(name: 'sort_order') int sortOrder,
     @JsonKey(name: 'type_data') Map<String, dynamic>? typeData,
-    List<String>? blanks,
-    List<String>? chips,
-    String? front,
-    String? back,
   });
 }
 
@@ -225,18 +209,15 @@ class __$$QuestionModelImplCopyWithImpl<$Res>
     Object? id = null,
     Object? text = null,
     Object? type = null,
-    Object? options = freezed,
+    Object? options = null,
     Object? imageUrl = freezed,
+    Object? examSource = freezed,
     Object? explanation = freezed,
     Object? hint = freezed,
     Object? difficulty = null,
     Object? pointValue = null,
     Object? sortOrder = null,
     Object? typeData = freezed,
-    Object? blanks = freezed,
-    Object? chips = freezed,
-    Object? front = freezed,
-    Object? back = freezed,
   }) {
     return _then(
       _$QuestionModelImpl(
@@ -252,13 +233,17 @@ class __$$QuestionModelImplCopyWithImpl<$Res>
             ? _value.type
             : type // ignore: cast_nullable_to_non_nullable
                   as QuestionType,
-        options: freezed == options
+        options: null == options
             ? _value._options
             : options // ignore: cast_nullable_to_non_nullable
-                  as List<AnswerOption>?,
+                  as List<AnswerOption>,
         imageUrl: freezed == imageUrl
             ? _value.imageUrl
             : imageUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        examSource: freezed == examSource
+            ? _value.examSource
+            : examSource // ignore: cast_nullable_to_non_nullable
                   as String?,
         explanation: freezed == explanation
             ? _value.explanation
@@ -284,22 +269,6 @@ class __$$QuestionModelImplCopyWithImpl<$Res>
             ? _value._typeData
             : typeData // ignore: cast_nullable_to_non_nullable
                   as Map<String, dynamic>?,
-        blanks: freezed == blanks
-            ? _value._blanks
-            : blanks // ignore: cast_nullable_to_non_nullable
-                  as List<String>?,
-        chips: freezed == chips
-            ? _value._chips
-            : chips // ignore: cast_nullable_to_non_nullable
-                  as List<String>?,
-        front: freezed == front
-            ? _value.front
-            : front // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        back: freezed == back
-            ? _value.back
-            : back // ignore: cast_nullable_to_non_nullable
-                  as String?,
       ),
     );
   }
@@ -311,23 +280,22 @@ class _$QuestionModelImpl implements _QuestionModel {
   const _$QuestionModelImpl({
     required this.id,
     @JsonKey(name: 'question_text') required this.text,
-    @JsonKey(name: 'question_type') required this.type,
-    @JsonKey(name: 'answers') final List<AnswerOption>? options,
+    @JsonKey(
+      name: 'question_type',
+      unknownEnumValue: QuestionType.multipleChoice,
+    )
+    required this.type,
+    @JsonKey(name: 'answers') final List<AnswerOption> options = const [],
     @JsonKey(name: 'image_url') this.imageUrl,
+    @JsonKey(name: 'exam_source') this.examSource,
     this.explanation,
     this.hint,
     this.difficulty = 1,
     @JsonKey(name: 'point_value') this.pointValue = 1,
     @JsonKey(name: 'sort_order') this.sortOrder = 0,
     @JsonKey(name: 'type_data') final Map<String, dynamic>? typeData,
-    final List<String>? blanks,
-    final List<String>? chips,
-    this.front,
-    this.back,
   }) : _options = options,
-       _typeData = typeData,
-       _blanks = blanks,
-       _chips = chips;
+       _typeData = typeData;
 
   factory _$QuestionModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$QuestionModelImplFromJson(json);
@@ -338,22 +306,23 @@ class _$QuestionModelImpl implements _QuestionModel {
   @JsonKey(name: 'question_text')
   final String text;
   @override
-  @JsonKey(name: 'question_type')
+  @JsonKey(name: 'question_type', unknownEnumValue: QuestionType.multipleChoice)
   final QuestionType type;
-  final List<AnswerOption>? _options;
+  final List<AnswerOption> _options;
   @override
   @JsonKey(name: 'answers')
-  List<AnswerOption>? get options {
-    final value = _options;
-    if (value == null) return null;
+  List<AnswerOption> get options {
     if (_options is EqualUnmodifiableListView) return _options;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(value);
+    return EqualUnmodifiableListView(_options);
   }
 
   @override
   @JsonKey(name: 'image_url')
   final String? imageUrl;
+  @override
+  @JsonKey(name: 'exam_source')
+  final String? examSource;
   @override
   final String? explanation;
   @override
@@ -378,37 +347,9 @@ class _$QuestionModelImpl implements _QuestionModel {
     return EqualUnmodifiableMapView(value);
   }
 
-  // For fill-in-blank
-  final List<String>? _blanks;
-  // For fill-in-blank
-  @override
-  List<String>? get blanks {
-    final value = _blanks;
-    if (value == null) return null;
-    if (_blanks is EqualUnmodifiableListView) return _blanks;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(value);
-  }
-
-  final List<String>? _chips;
-  @override
-  List<String>? get chips {
-    final value = _chips;
-    if (value == null) return null;
-    if (_chips is EqualUnmodifiableListView) return _chips;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(value);
-  }
-
-  // For flashcard
-  @override
-  final String? front;
-  @override
-  final String? back;
-
   @override
   String toString() {
-    return 'QuestionModel(id: $id, text: $text, type: $type, options: $options, imageUrl: $imageUrl, explanation: $explanation, hint: $hint, difficulty: $difficulty, pointValue: $pointValue, sortOrder: $sortOrder, typeData: $typeData, blanks: $blanks, chips: $chips, front: $front, back: $back)';
+    return 'QuestionModel(id: $id, text: $text, type: $type, options: $options, imageUrl: $imageUrl, examSource: $examSource, explanation: $explanation, hint: $hint, difficulty: $difficulty, pointValue: $pointValue, sortOrder: $sortOrder, typeData: $typeData)';
   }
 
   @override
@@ -422,6 +363,8 @@ class _$QuestionModelImpl implements _QuestionModel {
             const DeepCollectionEquality().equals(other._options, _options) &&
             (identical(other.imageUrl, imageUrl) ||
                 other.imageUrl == imageUrl) &&
+            (identical(other.examSource, examSource) ||
+                other.examSource == examSource) &&
             (identical(other.explanation, explanation) ||
                 other.explanation == explanation) &&
             (identical(other.hint, hint) || other.hint == hint) &&
@@ -431,11 +374,7 @@ class _$QuestionModelImpl implements _QuestionModel {
                 other.pointValue == pointValue) &&
             (identical(other.sortOrder, sortOrder) ||
                 other.sortOrder == sortOrder) &&
-            const DeepCollectionEquality().equals(other._typeData, _typeData) &&
-            const DeepCollectionEquality().equals(other._blanks, _blanks) &&
-            const DeepCollectionEquality().equals(other._chips, _chips) &&
-            (identical(other.front, front) || other.front == front) &&
-            (identical(other.back, back) || other.back == back));
+            const DeepCollectionEquality().equals(other._typeData, _typeData));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -447,16 +386,13 @@ class _$QuestionModelImpl implements _QuestionModel {
     type,
     const DeepCollectionEquality().hash(_options),
     imageUrl,
+    examSource,
     explanation,
     hint,
     difficulty,
     pointValue,
     sortOrder,
     const DeepCollectionEquality().hash(_typeData),
-    const DeepCollectionEquality().hash(_blanks),
-    const DeepCollectionEquality().hash(_chips),
-    front,
-    back,
   );
 
   /// Create a copy of QuestionModel
@@ -477,19 +413,20 @@ abstract class _QuestionModel implements QuestionModel {
   const factory _QuestionModel({
     required final String id,
     @JsonKey(name: 'question_text') required final String text,
-    @JsonKey(name: 'question_type') required final QuestionType type,
-    @JsonKey(name: 'answers') final List<AnswerOption>? options,
+    @JsonKey(
+      name: 'question_type',
+      unknownEnumValue: QuestionType.multipleChoice,
+    )
+    required final QuestionType type,
+    @JsonKey(name: 'answers') final List<AnswerOption> options,
     @JsonKey(name: 'image_url') final String? imageUrl,
+    @JsonKey(name: 'exam_source') final String? examSource,
     final String? explanation,
     final String? hint,
     final int difficulty,
     @JsonKey(name: 'point_value') final int pointValue,
     @JsonKey(name: 'sort_order') final int sortOrder,
     @JsonKey(name: 'type_data') final Map<String, dynamic>? typeData,
-    final List<String>? blanks,
-    final List<String>? chips,
-    final String? front,
-    final String? back,
   }) = _$QuestionModelImpl;
 
   factory _QuestionModel.fromJson(Map<String, dynamic> json) =
@@ -501,14 +438,17 @@ abstract class _QuestionModel implements QuestionModel {
   @JsonKey(name: 'question_text')
   String get text;
   @override
-  @JsonKey(name: 'question_type')
+  @JsonKey(name: 'question_type', unknownEnumValue: QuestionType.multipleChoice)
   QuestionType get type;
   @override
   @JsonKey(name: 'answers')
-  List<AnswerOption>? get options;
+  List<AnswerOption> get options;
   @override
   @JsonKey(name: 'image_url')
   String? get imageUrl;
+  @override
+  @JsonKey(name: 'exam_source')
+  String? get examSource;
   @override
   String? get explanation;
   @override
@@ -523,15 +463,7 @@ abstract class _QuestionModel implements QuestionModel {
   int get sortOrder;
   @override
   @JsonKey(name: 'type_data')
-  Map<String, dynamic>? get typeData; // For fill-in-blank
-  @override
-  List<String>? get blanks;
-  @override
-  List<String>? get chips; // For flashcard
-  @override
-  String? get front;
-  @override
-  String? get back;
+  Map<String, dynamic>? get typeData;
 
   /// Create a copy of QuestionModel
   /// with the given fields replaced by the non-null parameter values.
@@ -552,7 +484,6 @@ mixin _$AnswerOption {
   String get text => throw _privateConstructorUsedError;
   @JsonKey(name: 'is_correct')
   bool get isCorrect => throw _privateConstructorUsedError;
-  String? get label => throw _privateConstructorUsedError;
 
   /// Serializes this AnswerOption to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -575,7 +506,6 @@ abstract class $AnswerOptionCopyWith<$Res> {
     String id,
     @JsonKey(name: 'answer_text') String text,
     @JsonKey(name: 'is_correct') bool isCorrect,
-    String? label,
   });
 }
 
@@ -597,7 +527,6 @@ class _$AnswerOptionCopyWithImpl<$Res, $Val extends AnswerOption>
     Object? id = null,
     Object? text = null,
     Object? isCorrect = null,
-    Object? label = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -613,10 +542,6 @@ class _$AnswerOptionCopyWithImpl<$Res, $Val extends AnswerOption>
                 ? _value.isCorrect
                 : isCorrect // ignore: cast_nullable_to_non_nullable
                       as bool,
-            label: freezed == label
-                ? _value.label
-                : label // ignore: cast_nullable_to_non_nullable
-                      as String?,
           )
           as $Val,
     );
@@ -636,7 +561,6 @@ abstract class _$$AnswerOptionImplCopyWith<$Res>
     String id,
     @JsonKey(name: 'answer_text') String text,
     @JsonKey(name: 'is_correct') bool isCorrect,
-    String? label,
   });
 }
 
@@ -657,7 +581,6 @@ class __$$AnswerOptionImplCopyWithImpl<$Res>
     Object? id = null,
     Object? text = null,
     Object? isCorrect = null,
-    Object? label = freezed,
   }) {
     return _then(
       _$AnswerOptionImpl(
@@ -673,10 +596,6 @@ class __$$AnswerOptionImplCopyWithImpl<$Res>
             ? _value.isCorrect
             : isCorrect // ignore: cast_nullable_to_non_nullable
                   as bool,
-        label: freezed == label
-            ? _value.label
-            : label // ignore: cast_nullable_to_non_nullable
-                  as String?,
       ),
     );
   }
@@ -689,7 +608,6 @@ class _$AnswerOptionImpl implements _AnswerOption {
     required this.id,
     @JsonKey(name: 'answer_text') required this.text,
     @JsonKey(name: 'is_correct') this.isCorrect = false,
-    this.label,
   });
 
   factory _$AnswerOptionImpl.fromJson(Map<String, dynamic> json) =>
@@ -703,12 +621,10 @@ class _$AnswerOptionImpl implements _AnswerOption {
   @override
   @JsonKey(name: 'is_correct')
   final bool isCorrect;
-  @override
-  final String? label;
 
   @override
   String toString() {
-    return 'AnswerOption(id: $id, text: $text, isCorrect: $isCorrect, label: $label)';
+    return 'AnswerOption(id: $id, text: $text, isCorrect: $isCorrect)';
   }
 
   @override
@@ -719,13 +635,12 @@ class _$AnswerOptionImpl implements _AnswerOption {
             (identical(other.id, id) || other.id == id) &&
             (identical(other.text, text) || other.text == text) &&
             (identical(other.isCorrect, isCorrect) ||
-                other.isCorrect == isCorrect) &&
-            (identical(other.label, label) || other.label == label));
+                other.isCorrect == isCorrect));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, text, isCorrect, label);
+  int get hashCode => Object.hash(runtimeType, id, text, isCorrect);
 
   /// Create a copy of AnswerOption
   /// with the given fields replaced by the non-null parameter values.
@@ -746,7 +661,6 @@ abstract class _AnswerOption implements AnswerOption {
     required final String id,
     @JsonKey(name: 'answer_text') required final String text,
     @JsonKey(name: 'is_correct') final bool isCorrect,
-    final String? label,
   }) = _$AnswerOptionImpl;
 
   factory _AnswerOption.fromJson(Map<String, dynamic> json) =
@@ -760,350 +674,11 @@ abstract class _AnswerOption implements AnswerOption {
   @override
   @JsonKey(name: 'is_correct')
   bool get isCorrect;
-  @override
-  String? get label;
 
   /// Create a copy of AnswerOption
   /// with the given fields replaced by the non-null parameter values.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$AnswerOptionImplCopyWith<_$AnswerOptionImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-MatchingPair _$MatchingPairFromJson(Map<String, dynamic> json) {
-  return _MatchingPair.fromJson(json);
-}
-
-/// @nodoc
-mixin _$MatchingPair {
-  String get left => throw _privateConstructorUsedError;
-  String get right => throw _privateConstructorUsedError;
-
-  /// Serializes this MatchingPair to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-
-  /// Create a copy of MatchingPair
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $MatchingPairCopyWith<MatchingPair> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $MatchingPairCopyWith<$Res> {
-  factory $MatchingPairCopyWith(
-    MatchingPair value,
-    $Res Function(MatchingPair) then,
-  ) = _$MatchingPairCopyWithImpl<$Res, MatchingPair>;
-  @useResult
-  $Res call({String left, String right});
-}
-
-/// @nodoc
-class _$MatchingPairCopyWithImpl<$Res, $Val extends MatchingPair>
-    implements $MatchingPairCopyWith<$Res> {
-  _$MatchingPairCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of MatchingPair
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? left = null, Object? right = null}) {
-    return _then(
-      _value.copyWith(
-            left: null == left
-                ? _value.left
-                : left // ignore: cast_nullable_to_non_nullable
-                      as String,
-            right: null == right
-                ? _value.right
-                : right // ignore: cast_nullable_to_non_nullable
-                      as String,
-          )
-          as $Val,
-    );
-  }
-}
-
-/// @nodoc
-abstract class _$$MatchingPairImplCopyWith<$Res>
-    implements $MatchingPairCopyWith<$Res> {
-  factory _$$MatchingPairImplCopyWith(
-    _$MatchingPairImpl value,
-    $Res Function(_$MatchingPairImpl) then,
-  ) = __$$MatchingPairImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({String left, String right});
-}
-
-/// @nodoc
-class __$$MatchingPairImplCopyWithImpl<$Res>
-    extends _$MatchingPairCopyWithImpl<$Res, _$MatchingPairImpl>
-    implements _$$MatchingPairImplCopyWith<$Res> {
-  __$$MatchingPairImplCopyWithImpl(
-    _$MatchingPairImpl _value,
-    $Res Function(_$MatchingPairImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of MatchingPair
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? left = null, Object? right = null}) {
-    return _then(
-      _$MatchingPairImpl(
-        left: null == left
-            ? _value.left
-            : left // ignore: cast_nullable_to_non_nullable
-                  as String,
-        right: null == right
-            ? _value.right
-            : right // ignore: cast_nullable_to_non_nullable
-                  as String,
-      ),
-    );
-  }
-}
-
-/// @nodoc
-@JsonSerializable()
-class _$MatchingPairImpl implements _MatchingPair {
-  const _$MatchingPairImpl({required this.left, required this.right});
-
-  factory _$MatchingPairImpl.fromJson(Map<String, dynamic> json) =>
-      _$$MatchingPairImplFromJson(json);
-
-  @override
-  final String left;
-  @override
-  final String right;
-
-  @override
-  String toString() {
-    return 'MatchingPair(left: $left, right: $right)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$MatchingPairImpl &&
-            (identical(other.left, left) || other.left == left) &&
-            (identical(other.right, right) || other.right == right));
-  }
-
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  int get hashCode => Object.hash(runtimeType, left, right);
-
-  /// Create a copy of MatchingPair
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$MatchingPairImplCopyWith<_$MatchingPairImpl> get copyWith =>
-      __$$MatchingPairImplCopyWithImpl<_$MatchingPairImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$MatchingPairImplToJson(this);
-  }
-}
-
-abstract class _MatchingPair implements MatchingPair {
-  const factory _MatchingPair({
-    required final String left,
-    required final String right,
-  }) = _$MatchingPairImpl;
-
-  factory _MatchingPair.fromJson(Map<String, dynamic> json) =
-      _$MatchingPairImpl.fromJson;
-
-  @override
-  String get left;
-  @override
-  String get right;
-
-  /// Create a copy of MatchingPair
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$MatchingPairImplCopyWith<_$MatchingPairImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-OrderingItem _$OrderingItemFromJson(Map<String, dynamic> json) {
-  return _OrderingItem.fromJson(json);
-}
-
-/// @nodoc
-mixin _$OrderingItem {
-  String get text => throw _privateConstructorUsedError;
-  int get position => throw _privateConstructorUsedError;
-
-  /// Serializes this OrderingItem to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-
-  /// Create a copy of OrderingItem
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $OrderingItemCopyWith<OrderingItem> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $OrderingItemCopyWith<$Res> {
-  factory $OrderingItemCopyWith(
-    OrderingItem value,
-    $Res Function(OrderingItem) then,
-  ) = _$OrderingItemCopyWithImpl<$Res, OrderingItem>;
-  @useResult
-  $Res call({String text, int position});
-}
-
-/// @nodoc
-class _$OrderingItemCopyWithImpl<$Res, $Val extends OrderingItem>
-    implements $OrderingItemCopyWith<$Res> {
-  _$OrderingItemCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of OrderingItem
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? text = null, Object? position = null}) {
-    return _then(
-      _value.copyWith(
-            text: null == text
-                ? _value.text
-                : text // ignore: cast_nullable_to_non_nullable
-                      as String,
-            position: null == position
-                ? _value.position
-                : position // ignore: cast_nullable_to_non_nullable
-                      as int,
-          )
-          as $Val,
-    );
-  }
-}
-
-/// @nodoc
-abstract class _$$OrderingItemImplCopyWith<$Res>
-    implements $OrderingItemCopyWith<$Res> {
-  factory _$$OrderingItemImplCopyWith(
-    _$OrderingItemImpl value,
-    $Res Function(_$OrderingItemImpl) then,
-  ) = __$$OrderingItemImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({String text, int position});
-}
-
-/// @nodoc
-class __$$OrderingItemImplCopyWithImpl<$Res>
-    extends _$OrderingItemCopyWithImpl<$Res, _$OrderingItemImpl>
-    implements _$$OrderingItemImplCopyWith<$Res> {
-  __$$OrderingItemImplCopyWithImpl(
-    _$OrderingItemImpl _value,
-    $Res Function(_$OrderingItemImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of OrderingItem
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? text = null, Object? position = null}) {
-    return _then(
-      _$OrderingItemImpl(
-        text: null == text
-            ? _value.text
-            : text // ignore: cast_nullable_to_non_nullable
-                  as String,
-        position: null == position
-            ? _value.position
-            : position // ignore: cast_nullable_to_non_nullable
-                  as int,
-      ),
-    );
-  }
-}
-
-/// @nodoc
-@JsonSerializable()
-class _$OrderingItemImpl implements _OrderingItem {
-  const _$OrderingItemImpl({required this.text, required this.position});
-
-  factory _$OrderingItemImpl.fromJson(Map<String, dynamic> json) =>
-      _$$OrderingItemImplFromJson(json);
-
-  @override
-  final String text;
-  @override
-  final int position;
-
-  @override
-  String toString() {
-    return 'OrderingItem(text: $text, position: $position)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$OrderingItemImpl &&
-            (identical(other.text, text) || other.text == text) &&
-            (identical(other.position, position) ||
-                other.position == position));
-  }
-
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  int get hashCode => Object.hash(runtimeType, text, position);
-
-  /// Create a copy of OrderingItem
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$OrderingItemImplCopyWith<_$OrderingItemImpl> get copyWith =>
-      __$$OrderingItemImplCopyWithImpl<_$OrderingItemImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$OrderingItemImplToJson(this);
-  }
-}
-
-abstract class _OrderingItem implements OrderingItem {
-  const factory _OrderingItem({
-    required final String text,
-    required final int position,
-  }) = _$OrderingItemImpl;
-
-  factory _OrderingItem.fromJson(Map<String, dynamic> json) =
-      _$OrderingItemImpl.fromJson;
-
-  @override
-  String get text;
-  @override
-  int get position;
-
-  /// Create a copy of OrderingItem
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$OrderingItemImplCopyWith<_$OrderingItemImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

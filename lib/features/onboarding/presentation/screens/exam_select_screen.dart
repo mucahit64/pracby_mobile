@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
-import 'package:pracby_mobile/core/widgets/pb_button.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/onboarding/data/exam_groups_repository.dart';
 import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
 
-/// Stores the selected exam type ID for use during registration
-final selectedExamTypeIdProvider = StateProvider<String?>((ref) => null);
-
+/// Exam selection, mirroring the web client's `pages/welcome.vue`.
+/// A visitor becomes a guest with the chosen exam and goes straight to the
+/// lesson map (docs 10); a logged-in user adds the exam to their enrollments.
 class ExamSelectScreen extends ConsumerStatefulWidget {
   const ExamSelectScreen({super.key});
 
@@ -22,43 +23,52 @@ class ExamSelectScreen extends ConsumerStatefulWidget {
 }
 
 class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
-  String? _selectedExamTypeId;
-  String? _expandedGroupId;
-  bool _isLoading = false;
+  ExamGroupModel? _selectedGroup;
+  bool _saving = false;
 
-  Future<void> _handleContinue() async {
-    if (_selectedExamTypeId == null) return;
-    final isLoggedIn =
-        ref.read(authStateProvider).valueOrNull != null;
-    if (isLoggedIn) {
-      setState(() => _isLoading = true);
-      try {
-        await ref
-            .read(userRepositoryProvider)
-            .addEnrollment(_selectedExamTypeId!);
-        ref.invalidate(enrollmentsProvider);
-        if (mounted) {
-          context.canPop() ? context.pop() : context.go(Routes.home);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Hata: $e')),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
-      }
-    } else {
-      ref.read(selectedExamTypeIdProvider.notifier).state =
-          _selectedExamTypeId;
-      context.go(Routes.register);
+  void _selectGroup(ExamGroupModel group) {
+    if (!group.isActive) return;
+    // A group with a single type selects it right away (docs 4).
+    if (group.examTypes.length == 1) {
+      _selectExamType(group, group.examTypes.first);
+      return;
+    }
+    setState(() => _selectedGroup = group);
+  }
+
+  Future<void> _selectExamType(ExamGroupModel group, ExamTypeModel type) async {
+    final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
+    if (!isLoggedIn) {
+      ref
+          .read(guestProvider.notifier)
+          .setExamType(examTypeId: type.id, examGroupId: group.id);
+      context.go(Routes.home);
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await ref.read(userRepositoryProvider).addEnrollment(type.id);
+      ref.invalidate(enrollmentsProvider);
+      if (mounted) context.go(Routes.home);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.statusCode == 409 ? 'Bu sınava zaten kayıtlısın.' : e.message,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final examGroupsAsync = ref.watch(examGroupsProvider);
+    final groupsAsync = ref.watch(examGroupsProvider);
+    final isLoggedIn = ref.watch(authStateProvider).valueOrNull != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -69,236 +79,208 @@ class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Hangi sınava hazırlanıyorsun?',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                textAlign: TextAlign.center,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            const Text(
+              'pracby',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Daha sonra değiştirebilirsin',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.grey500,
-                    ),
-                textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Hangi sınava hazırlanıyorsun?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.grey500,
               ),
-              const SizedBox(height: 32),
-              Expanded(
-                child: examGroupsAsync.when(
-                  loading: () => const PbLoading(message: 'Yükleniyor...'),
-                  error: (e, _) => Center(child: Text('Hata: $e')),
-                  data: _buildExamList,
-                ),
+            ),
+            const SizedBox(height: 24),
+            if (_saving)
+              const PbLoading()
+            else
+              groupsAsync.when(
+                loading: () => const PbLoading(message: 'Yükleniyor...'),
+                error: (e, _) => Center(child: Text('$e')),
+                data: (groups) => _selectedGroup == null
+                    ? _groupList(groups)
+                    : _typeList(_selectedGroup!),
               ),
+            if (!isLoggedIn) ...[
               const SizedBox(height: 24),
-              PbButton(
-                text: _isLoading ? 'Yükleniyor...' : 'Devam Et',
-                onPressed: _selectedExamTypeId != null && !_isLoading
-                    ? _handleContinue
-                    : null,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Zaten hesabın var mı?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.grey400,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push(Routes.login),
+                    child: const Text(
+                      'Giriş Yap',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildExamList(List<ExamGroupModel> groups) {
-    return ListView.separated(
-      itemCount: groups.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        if (!group.isActive) return const SizedBox.shrink();
-
-        final isExpanded = _expandedGroupId == group.id;
-        final hasMultipleTypes = group.examTypes.length > 1;
-
-        if (!hasMultipleTypes && group.examTypes.isNotEmpty) {
-          // Single exam type — show directly
-          final examType = group.examTypes.first;
-          return _buildExamTypeCard(
-            name: group.name,
-            description: group.description ?? '',
-            examTypeId: examType.id,
-          );
-        }
-
-        // Multiple exam types — expandable group
-        return Column(
-          children: [
-            _buildGroupCard(group, isExpanded: isExpanded),
-            if (isExpanded)
-              ...group.examTypes
-                  .where((t) => t.isActive)
-                  .map((type) => Padding(
-                        padding: const EdgeInsets.only(left: 24, top: 8),
-                        child: _buildExamTypeCard(
-                          name: type.name,
-                          description: type.description ?? '',
-                          examTypeId: type.id,
-                        ),
-                      )),
-          ],
-        );
-      },
+  Widget _groupList(List<ExamGroupModel> groups) {
+    return Column(
+      children: [
+        for (final group in groups)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _OptionCard(
+              title: group.name,
+              subtitle: group.description,
+              // Inactive groups are shown as "Çok Yakında" (docs 4).
+              badge: group.isActive ? null : 'ÇOK YAKINDA',
+              onTap: group.isActive ? () => _selectGroup(group) : null,
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildGroupCard(ExamGroupModel group, {required bool isExpanded}) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _expandedGroupId = isExpanded ? null : group.id;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isExpanded ? AppColors.primary : AppColors.grey200,
-            width: isExpanded ? 2 : 1,
+  Widget _typeList(ExamGroupModel group) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton(
+          onPressed: () => setState(() => _selectedGroup = null),
+          child: const Text(
+            '← Geri',
+            style: TextStyle(fontWeight: FontWeight.w700),
           ),
-          color: isExpanded
-              ? AppColors.primary.withValues(alpha: 0.05)
-              : Colors.transparent,
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isExpanded
-                    ? AppColors.primary.withValues(alpha: 0.1)
-                    : AppColors.grey100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  group.name[0],
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: isExpanded ? AppColors.primary : AppColors.grey600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    group.name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isExpanded ? AppColors.primary : AppColors.black,
-                    ),
-                  ),
-                  if (group.description != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      group.description!,
-                      style: const TextStyle(fontSize: 13, color: AppColors.grey500),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Icon(
-              isExpanded ? Icons.expand_less : Icons.expand_more,
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Alt kategori seç:',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
               color: AppColors.grey400,
             ),
-          ],
+          ),
         ),
-      ),
+        for (final type in group.examTypes)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _OptionCard(
+              title: type.name,
+              onTap: () => _selectExamType(group, type),
+            ),
+          ),
+      ],
     );
   }
+}
 
-  Widget _buildExamTypeCard({
-    required String name,
-    required String description,
-    required String examTypeId,
-  }) {
-    final isSelected = _selectedExamTypeId == examTypeId;
+class _OptionCard extends StatelessWidget {
+  const _OptionCard({
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+    this.badge,
+  });
 
-    return GestureDetector(
-      onTap: () => setState(() => _selectedExamTypeId = examTypeId),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
+  final String title;
+  final String? subtitle;
+  final String? badge;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    return Opacity(
+      opacity: disabled ? 0.6 : 1,
+      child: Material(
+        color: disabled ? AppColors.grey50 : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.grey200,
-            width: isSelected ? 2 : 1,
-          ),
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.05)
-              : Colors.transparent,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary.withValues(alpha: 0.1)
-                    : AppColors.grey100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  name[0],
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? AppColors.primary : AppColors.grey600,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.grey200, width: 2),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    children: [
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.grey800,
+                        ),
+                      ),
+                      if (subtitle != null && subtitle!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.grey400,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? AppColors.primary : AppColors.black,
+                if (badge != null)
+                  Positioned(
+                    top: -8,
+                    right: -12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        badge!,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
                   ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: const TextStyle(fontSize: 13, color: AppColors.grey500),
-                    ),
-                  ],
-                ],
-              ),
+              ],
             ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: AppColors.primary)
-            else
-              const Icon(Icons.circle_outlined, color: AppColors.grey300),
-          ],
+          ),
         ),
       ),
     );

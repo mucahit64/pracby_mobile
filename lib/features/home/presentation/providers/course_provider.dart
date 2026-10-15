@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/data/course_repository.dart';
 import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 
@@ -24,7 +26,20 @@ final modulesProvider =
   return ref.watch(courseRepositoryProvider).getModules(examTypeId);
 });
 
+/// Lesson map data. For guests the API sends no progress, so local results
+/// are overlaid (docs 10.6); it rebuilds when guest progress changes.
 final courseFullProvider =
     FutureProvider.autoDispose.family<CourseModel, String>((ref, courseId) async {
-  return ref.watch(courseRepositoryProvider).getCourseFull(courseId);
+  final isLoggedIn = ref.watch(
+    authStateProvider.select((s) => s.valueOrNull != null),
+  );
+  final course =
+      await ref.watch(courseRepositoryProvider).getCourseFull(courseId);
+  if (isLoggedIn) return course;
+  ref.watch(
+    guestProvider.select(
+      (g) => (g.quizResults.length, g.claimedRewardStepIds.length),
+    ),
+  );
+  return ref.read(guestProvider.notifier).overlayProgress(course);
 });

@@ -1285,15 +1285,15 @@ TopicModel _$TopicModelFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$TopicModel {
   String get id => throw _privateConstructorUsedError;
-  @JsonKey(name: 'course_id')
-  String? get courseId => throw _privateConstructorUsedError;
   @JsonKey(name: 'name')
   String get title => throw _privateConstructorUsedError;
+  @JsonKey(name: 'sort_order')
+  int get order => throw _privateConstructorUsedError;
+  @JsonKey(name: 'course_id')
+  String? get courseId => throw _privateConstructorUsedError;
   String? get description => throw _privateConstructorUsedError;
   @JsonKey(name: 'icon_url')
   String? get iconUrl => throw _privateConstructorUsedError;
-  @JsonKey(name: 'sort_order')
-  int get order => throw _privateConstructorUsedError;
   @JsonKey(name: 'total_lessons')
   int get totalLessons => throw _privateConstructorUsedError;
   @JsonKey(name: 'max_crown_level')
@@ -1323,11 +1323,11 @@ abstract class $TopicModelCopyWith<$Res> {
   @useResult
   $Res call({
     String id,
-    @JsonKey(name: 'course_id') String? courseId,
     @JsonKey(name: 'name') String title,
+    @JsonKey(name: 'sort_order') int order,
+    @JsonKey(name: 'course_id') String? courseId,
     String? description,
     @JsonKey(name: 'icon_url') String? iconUrl,
-    @JsonKey(name: 'sort_order') int order,
     @JsonKey(name: 'total_lessons') int totalLessons,
     @JsonKey(name: 'max_crown_level') int maxCrownLevel,
     @JsonKey(name: 'unlock_after') String? unlockAfter,
@@ -1355,11 +1355,11 @@ class _$TopicModelCopyWithImpl<$Res, $Val extends TopicModel>
   @override
   $Res call({
     Object? id = null,
-    Object? courseId = freezed,
     Object? title = null,
+    Object? order = null,
+    Object? courseId = freezed,
     Object? description = freezed,
     Object? iconUrl = freezed,
-    Object? order = null,
     Object? totalLessons = null,
     Object? maxCrownLevel = null,
     Object? unlockAfter = freezed,
@@ -1373,14 +1373,18 @@ class _$TopicModelCopyWithImpl<$Res, $Val extends TopicModel>
                 ? _value.id
                 : id // ignore: cast_nullable_to_non_nullable
                       as String,
-            courseId: freezed == courseId
-                ? _value.courseId
-                : courseId // ignore: cast_nullable_to_non_nullable
-                      as String?,
             title: null == title
                 ? _value.title
                 : title // ignore: cast_nullable_to_non_nullable
                       as String,
+            order: null == order
+                ? _value.order
+                : order // ignore: cast_nullable_to_non_nullable
+                      as int,
+            courseId: freezed == courseId
+                ? _value.courseId
+                : courseId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             description: freezed == description
                 ? _value.description
                 : description // ignore: cast_nullable_to_non_nullable
@@ -1389,10 +1393,6 @@ class _$TopicModelCopyWithImpl<$Res, $Val extends TopicModel>
                 ? _value.iconUrl
                 : iconUrl // ignore: cast_nullable_to_non_nullable
                       as String?,
-            order: null == order
-                ? _value.order
-                : order // ignore: cast_nullable_to_non_nullable
-                      as int,
             totalLessons: null == totalLessons
                 ? _value.totalLessons
                 : totalLessons // ignore: cast_nullable_to_non_nullable
@@ -1448,11 +1448,11 @@ abstract class _$$TopicModelImplCopyWith<$Res>
   @useResult
   $Res call({
     String id,
-    @JsonKey(name: 'course_id') String? courseId,
     @JsonKey(name: 'name') String title,
+    @JsonKey(name: 'sort_order') int order,
+    @JsonKey(name: 'course_id') String? courseId,
     String? description,
     @JsonKey(name: 'icon_url') String? iconUrl,
-    @JsonKey(name: 'sort_order') int order,
     @JsonKey(name: 'total_lessons') int totalLessons,
     @JsonKey(name: 'max_crown_level') int maxCrownLevel,
     @JsonKey(name: 'unlock_after') String? unlockAfter,
@@ -1480,11 +1480,11 @@ class __$$TopicModelImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? id = null,
-    Object? courseId = freezed,
     Object? title = null,
+    Object? order = null,
+    Object? courseId = freezed,
     Object? description = freezed,
     Object? iconUrl = freezed,
-    Object? order = null,
     Object? totalLessons = null,
     Object? maxCrownLevel = null,
     Object? unlockAfter = freezed,
@@ -1498,14 +1498,18 @@ class __$$TopicModelImplCopyWithImpl<$Res>
             ? _value.id
             : id // ignore: cast_nullable_to_non_nullable
                   as String,
-        courseId: freezed == courseId
-            ? _value.courseId
-            : courseId // ignore: cast_nullable_to_non_nullable
-                  as String?,
         title: null == title
             ? _value.title
             : title // ignore: cast_nullable_to_non_nullable
                   as String,
+        order: null == order
+            ? _value.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+        courseId: freezed == courseId
+            ? _value.courseId
+            : courseId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         description: freezed == description
             ? _value.description
             : description // ignore: cast_nullable_to_non_nullable
@@ -1514,10 +1518,6 @@ class __$$TopicModelImplCopyWithImpl<$Res>
             ? _value.iconUrl
             : iconUrl // ignore: cast_nullable_to_non_nullable
                   as String?,
-        order: null == order
-            ? _value.order
-            : order // ignore: cast_nullable_to_non_nullable
-                  as int,
         totalLessons: null == totalLessons
             ? _value.totalLessons
             : totalLessons // ignore: cast_nullable_to_non_nullable
@@ -1552,11 +1552,11 @@ class __$$TopicModelImplCopyWithImpl<$Res>
 class _$TopicModelImpl implements _TopicModel {
   const _$TopicModelImpl({
     required this.id,
-    @JsonKey(name: 'course_id') this.courseId,
     @JsonKey(name: 'name') required this.title,
+    @JsonKey(name: 'sort_order') required this.order,
+    @JsonKey(name: 'course_id') this.courseId,
     this.description,
     @JsonKey(name: 'icon_url') this.iconUrl,
-    @JsonKey(name: 'sort_order') required this.order,
     @JsonKey(name: 'total_lessons') this.totalLessons = 0,
     @JsonKey(name: 'max_crown_level') this.maxCrownLevel = 5,
     @JsonKey(name: 'unlock_after') this.unlockAfter,
@@ -1571,19 +1571,19 @@ class _$TopicModelImpl implements _TopicModel {
   @override
   final String id;
   @override
-  @JsonKey(name: 'course_id')
-  final String? courseId;
-  @override
   @JsonKey(name: 'name')
   final String title;
+  @override
+  @JsonKey(name: 'sort_order')
+  final int order;
+  @override
+  @JsonKey(name: 'course_id')
+  final String? courseId;
   @override
   final String? description;
   @override
   @JsonKey(name: 'icon_url')
   final String? iconUrl;
-  @override
-  @JsonKey(name: 'sort_order')
-  final int order;
   @override
   @JsonKey(name: 'total_lessons')
   final int totalLessons;
@@ -1610,7 +1610,7 @@ class _$TopicModelImpl implements _TopicModel {
 
   @override
   String toString() {
-    return 'TopicModel(id: $id, courseId: $courseId, title: $title, description: $description, iconUrl: $iconUrl, order: $order, totalLessons: $totalLessons, maxCrownLevel: $maxCrownLevel, unlockAfter: $unlockAfter, status: $status, steps: $steps, progress: $progress)';
+    return 'TopicModel(id: $id, title: $title, order: $order, courseId: $courseId, description: $description, iconUrl: $iconUrl, totalLessons: $totalLessons, maxCrownLevel: $maxCrownLevel, unlockAfter: $unlockAfter, status: $status, steps: $steps, progress: $progress)';
   }
 
   @override
@@ -1619,13 +1619,13 @@ class _$TopicModelImpl implements _TopicModel {
         (other.runtimeType == runtimeType &&
             other is _$TopicModelImpl &&
             (identical(other.id, id) || other.id == id) &&
+            (identical(other.title, title) || other.title == title) &&
+            (identical(other.order, order) || other.order == order) &&
             (identical(other.courseId, courseId) ||
                 other.courseId == courseId) &&
-            (identical(other.title, title) || other.title == title) &&
             (identical(other.description, description) ||
                 other.description == description) &&
             (identical(other.iconUrl, iconUrl) || other.iconUrl == iconUrl) &&
-            (identical(other.order, order) || other.order == order) &&
             (identical(other.totalLessons, totalLessons) ||
                 other.totalLessons == totalLessons) &&
             (identical(other.maxCrownLevel, maxCrownLevel) ||
@@ -1643,11 +1643,11 @@ class _$TopicModelImpl implements _TopicModel {
   int get hashCode => Object.hash(
     runtimeType,
     id,
-    courseId,
     title,
+    order,
+    courseId,
     description,
     iconUrl,
-    order,
     totalLessons,
     maxCrownLevel,
     unlockAfter,
@@ -1673,11 +1673,11 @@ class _$TopicModelImpl implements _TopicModel {
 abstract class _TopicModel implements TopicModel {
   const factory _TopicModel({
     required final String id,
-    @JsonKey(name: 'course_id') final String? courseId,
     @JsonKey(name: 'name') required final String title,
+    @JsonKey(name: 'sort_order') required final int order,
+    @JsonKey(name: 'course_id') final String? courseId,
     final String? description,
     @JsonKey(name: 'icon_url') final String? iconUrl,
-    @JsonKey(name: 'sort_order') required final int order,
     @JsonKey(name: 'total_lessons') final int totalLessons,
     @JsonKey(name: 'max_crown_level') final int maxCrownLevel,
     @JsonKey(name: 'unlock_after') final String? unlockAfter,
@@ -1692,19 +1692,19 @@ abstract class _TopicModel implements TopicModel {
   @override
   String get id;
   @override
-  @JsonKey(name: 'course_id')
-  String? get courseId;
-  @override
   @JsonKey(name: 'name')
   String get title;
+  @override
+  @JsonKey(name: 'sort_order')
+  int get order;
+  @override
+  @JsonKey(name: 'course_id')
+  String? get courseId;
   @override
   String? get description;
   @override
   @JsonKey(name: 'icon_url')
   String? get iconUrl;
-  @override
-  @JsonKey(name: 'sort_order')
-  int get order;
   @override
   @JsonKey(name: 'total_lessons')
   int get totalLessons;
@@ -1736,15 +1736,15 @@ StepModel _$StepModelFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$StepModel {
   String get id => throw _privateConstructorUsedError;
+  @JsonKey(name: 'sort_order')
+  int get order => throw _privateConstructorUsedError;
+  @JsonKey(name: 'step_type')
+  StepType get type => throw _privateConstructorUsedError;
   @JsonKey(name: 'topic_id')
   String? get topicId => throw _privateConstructorUsedError;
   @JsonKey(name: 'name')
   String get title => throw _privateConstructorUsedError;
   String? get description => throw _privateConstructorUsedError;
-  @JsonKey(name: 'sort_order')
-  int get order => throw _privateConstructorUsedError;
-  @JsonKey(name: 'step_type')
-  StepType get type => throw _privateConstructorUsedError;
   @JsonKey(name: 'tests_required')
   int get testsRequired => throw _privateConstructorUsedError;
   @JsonKey(name: 'reward_type')
@@ -1772,11 +1772,11 @@ abstract class $StepModelCopyWith<$Res> {
   @useResult
   $Res call({
     String id,
+    @JsonKey(name: 'sort_order') int order,
+    @JsonKey(name: 'step_type') StepType type,
     @JsonKey(name: 'topic_id') String? topicId,
     @JsonKey(name: 'name') String title,
     String? description,
-    @JsonKey(name: 'sort_order') int order,
-    @JsonKey(name: 'step_type') StepType type,
     @JsonKey(name: 'tests_required') int testsRequired,
     @JsonKey(name: 'reward_type') String? rewardType,
     @JsonKey(name: 'reward_amount') int? rewardAmount,
@@ -1803,11 +1803,11 @@ class _$StepModelCopyWithImpl<$Res, $Val extends StepModel>
   @override
   $Res call({
     Object? id = null,
+    Object? order = null,
+    Object? type = null,
     Object? topicId = freezed,
     Object? title = null,
     Object? description = freezed,
-    Object? order = null,
-    Object? type = null,
     Object? testsRequired = null,
     Object? rewardType = freezed,
     Object? rewardAmount = freezed,
@@ -1820,6 +1820,14 @@ class _$StepModelCopyWithImpl<$Res, $Val extends StepModel>
                 ? _value.id
                 : id // ignore: cast_nullable_to_non_nullable
                       as String,
+            order: null == order
+                ? _value.order
+                : order // ignore: cast_nullable_to_non_nullable
+                      as int,
+            type: null == type
+                ? _value.type
+                : type // ignore: cast_nullable_to_non_nullable
+                      as StepType,
             topicId: freezed == topicId
                 ? _value.topicId
                 : topicId // ignore: cast_nullable_to_non_nullable
@@ -1832,14 +1840,6 @@ class _$StepModelCopyWithImpl<$Res, $Val extends StepModel>
                 ? _value.description
                 : description // ignore: cast_nullable_to_non_nullable
                       as String?,
-            order: null == order
-                ? _value.order
-                : order // ignore: cast_nullable_to_non_nullable
-                      as int,
-            type: null == type
-                ? _value.type
-                : type // ignore: cast_nullable_to_non_nullable
-                      as StepType,
             testsRequired: null == testsRequired
                 ? _value.testsRequired
                 : testsRequired // ignore: cast_nullable_to_non_nullable
@@ -1891,11 +1891,11 @@ abstract class _$$StepModelImplCopyWith<$Res>
   @useResult
   $Res call({
     String id,
+    @JsonKey(name: 'sort_order') int order,
+    @JsonKey(name: 'step_type') StepType type,
     @JsonKey(name: 'topic_id') String? topicId,
     @JsonKey(name: 'name') String title,
     String? description,
-    @JsonKey(name: 'sort_order') int order,
-    @JsonKey(name: 'step_type') StepType type,
     @JsonKey(name: 'tests_required') int testsRequired,
     @JsonKey(name: 'reward_type') String? rewardType,
     @JsonKey(name: 'reward_amount') int? rewardAmount,
@@ -1922,11 +1922,11 @@ class __$$StepModelImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? id = null,
+    Object? order = null,
+    Object? type = null,
     Object? topicId = freezed,
     Object? title = null,
     Object? description = freezed,
-    Object? order = null,
-    Object? type = null,
     Object? testsRequired = null,
     Object? rewardType = freezed,
     Object? rewardAmount = freezed,
@@ -1939,6 +1939,14 @@ class __$$StepModelImplCopyWithImpl<$Res>
             ? _value.id
             : id // ignore: cast_nullable_to_non_nullable
                   as String,
+        order: null == order
+            ? _value.order
+            : order // ignore: cast_nullable_to_non_nullable
+                  as int,
+        type: null == type
+            ? _value.type
+            : type // ignore: cast_nullable_to_non_nullable
+                  as StepType,
         topicId: freezed == topicId
             ? _value.topicId
             : topicId // ignore: cast_nullable_to_non_nullable
@@ -1951,14 +1959,6 @@ class __$$StepModelImplCopyWithImpl<$Res>
             ? _value.description
             : description // ignore: cast_nullable_to_non_nullable
                   as String?,
-        order: null == order
-            ? _value.order
-            : order // ignore: cast_nullable_to_non_nullable
-                  as int,
-        type: null == type
-            ? _value.type
-            : type // ignore: cast_nullable_to_non_nullable
-                  as StepType,
         testsRequired: null == testsRequired
             ? _value.testsRequired
             : testsRequired // ignore: cast_nullable_to_non_nullable
@@ -1989,11 +1989,11 @@ class __$$StepModelImplCopyWithImpl<$Res>
 class _$StepModelImpl implements _StepModel {
   const _$StepModelImpl({
     required this.id,
+    @JsonKey(name: 'sort_order') required this.order,
+    @JsonKey(name: 'step_type') required this.type,
     @JsonKey(name: 'topic_id') this.topicId,
     @JsonKey(name: 'name') this.title = '',
     this.description,
-    @JsonKey(name: 'sort_order') required this.order,
-    @JsonKey(name: 'step_type') required this.type,
     @JsonKey(name: 'tests_required') this.testsRequired = 5,
     @JsonKey(name: 'reward_type') this.rewardType,
     @JsonKey(name: 'reward_amount') this.rewardAmount,
@@ -2007,6 +2007,12 @@ class _$StepModelImpl implements _StepModel {
   @override
   final String id;
   @override
+  @JsonKey(name: 'sort_order')
+  final int order;
+  @override
+  @JsonKey(name: 'step_type')
+  final StepType type;
+  @override
   @JsonKey(name: 'topic_id')
   final String? topicId;
   @override
@@ -2014,12 +2020,6 @@ class _$StepModelImpl implements _StepModel {
   final String title;
   @override
   final String? description;
-  @override
-  @JsonKey(name: 'sort_order')
-  final int order;
-  @override
-  @JsonKey(name: 'step_type')
-  final StepType type;
   @override
   @JsonKey(name: 'tests_required')
   final int testsRequired;
@@ -2037,7 +2037,7 @@ class _$StepModelImpl implements _StepModel {
 
   @override
   String toString() {
-    return 'StepModel(id: $id, topicId: $topicId, title: $title, description: $description, order: $order, type: $type, testsRequired: $testsRequired, rewardType: $rewardType, rewardAmount: $rewardAmount, rewardItemId: $rewardItemId, progress: $progress)';
+    return 'StepModel(id: $id, order: $order, type: $type, topicId: $topicId, title: $title, description: $description, testsRequired: $testsRequired, rewardType: $rewardType, rewardAmount: $rewardAmount, rewardItemId: $rewardItemId, progress: $progress)';
   }
 
   @override
@@ -2046,12 +2046,12 @@ class _$StepModelImpl implements _StepModel {
         (other.runtimeType == runtimeType &&
             other is _$StepModelImpl &&
             (identical(other.id, id) || other.id == id) &&
+            (identical(other.order, order) || other.order == order) &&
+            (identical(other.type, type) || other.type == type) &&
             (identical(other.topicId, topicId) || other.topicId == topicId) &&
             (identical(other.title, title) || other.title == title) &&
             (identical(other.description, description) ||
                 other.description == description) &&
-            (identical(other.order, order) || other.order == order) &&
-            (identical(other.type, type) || other.type == type) &&
             (identical(other.testsRequired, testsRequired) ||
                 other.testsRequired == testsRequired) &&
             (identical(other.rewardType, rewardType) ||
@@ -2069,11 +2069,11 @@ class _$StepModelImpl implements _StepModel {
   int get hashCode => Object.hash(
     runtimeType,
     id,
+    order,
+    type,
     topicId,
     title,
     description,
-    order,
-    type,
     testsRequired,
     rewardType,
     rewardAmount,
@@ -2098,11 +2098,11 @@ class _$StepModelImpl implements _StepModel {
 abstract class _StepModel implements StepModel {
   const factory _StepModel({
     required final String id,
+    @JsonKey(name: 'sort_order') required final int order,
+    @JsonKey(name: 'step_type') required final StepType type,
     @JsonKey(name: 'topic_id') final String? topicId,
     @JsonKey(name: 'name') final String title,
     final String? description,
-    @JsonKey(name: 'sort_order') required final int order,
-    @JsonKey(name: 'step_type') required final StepType type,
     @JsonKey(name: 'tests_required') final int testsRequired,
     @JsonKey(name: 'reward_type') final String? rewardType,
     @JsonKey(name: 'reward_amount') final int? rewardAmount,
@@ -2116,6 +2116,12 @@ abstract class _StepModel implements StepModel {
   @override
   String get id;
   @override
+  @JsonKey(name: 'sort_order')
+  int get order;
+  @override
+  @JsonKey(name: 'step_type')
+  StepType get type;
+  @override
   @JsonKey(name: 'topic_id')
   String? get topicId;
   @override
@@ -2123,12 +2129,6 @@ abstract class _StepModel implements StepModel {
   String get title;
   @override
   String? get description;
-  @override
-  @JsonKey(name: 'sort_order')
-  int get order;
-  @override
-  @JsonKey(name: 'step_type')
-  StepType get type;
   @override
   @JsonKey(name: 'tests_required')
   int get testsRequired;
@@ -2535,6 +2535,10 @@ mixin _$UserStepProgress {
   @JsonKey(name: 'step_final_passed')
   bool get stepFinalPassed => throw _privateConstructorUsedError;
   int get stars => throw _privateConstructorUsedError;
+
+  /// Best accuracy (0-100) — shown on completed lesson nodes (docs 6.4).
+  @JsonKey(name: 'best_score')
+  int get bestScore => throw _privateConstructorUsedError;
   @JsonKey(name: 'completed_at')
   DateTime? get completedAt => throw _privateConstructorUsedError;
 
@@ -2563,6 +2567,7 @@ abstract class $UserStepProgressCopyWith<$Res> {
     @JsonKey(name: 'is_step_completed') bool isStepCompleted,
     @JsonKey(name: 'step_final_passed') bool stepFinalPassed,
     int stars,
+    @JsonKey(name: 'best_score') int bestScore,
     @JsonKey(name: 'completed_at') DateTime? completedAt,
   });
 }
@@ -2589,6 +2594,7 @@ class _$UserStepProgressCopyWithImpl<$Res, $Val extends UserStepProgress>
     Object? isStepCompleted = null,
     Object? stepFinalPassed = null,
     Object? stars = null,
+    Object? bestScore = null,
     Object? completedAt = freezed,
   }) {
     return _then(
@@ -2621,6 +2627,10 @@ class _$UserStepProgressCopyWithImpl<$Res, $Val extends UserStepProgress>
                 ? _value.stars
                 : stars // ignore: cast_nullable_to_non_nullable
                       as int,
+            bestScore: null == bestScore
+                ? _value.bestScore
+                : bestScore // ignore: cast_nullable_to_non_nullable
+                      as int,
             completedAt: freezed == completedAt
                 ? _value.completedAt
                 : completedAt // ignore: cast_nullable_to_non_nullable
@@ -2648,6 +2658,7 @@ abstract class _$$UserStepProgressImplCopyWith<$Res>
     @JsonKey(name: 'is_step_completed') bool isStepCompleted,
     @JsonKey(name: 'step_final_passed') bool stepFinalPassed,
     int stars,
+    @JsonKey(name: 'best_score') int bestScore,
     @JsonKey(name: 'completed_at') DateTime? completedAt,
   });
 }
@@ -2673,6 +2684,7 @@ class __$$UserStepProgressImplCopyWithImpl<$Res>
     Object? isStepCompleted = null,
     Object? stepFinalPassed = null,
     Object? stars = null,
+    Object? bestScore = null,
     Object? completedAt = freezed,
   }) {
     return _then(
@@ -2705,6 +2717,10 @@ class __$$UserStepProgressImplCopyWithImpl<$Res>
             ? _value.stars
             : stars // ignore: cast_nullable_to_non_nullable
                   as int,
+        bestScore: null == bestScore
+            ? _value.bestScore
+            : bestScore // ignore: cast_nullable_to_non_nullable
+                  as int,
         completedAt: freezed == completedAt
             ? _value.completedAt
             : completedAt // ignore: cast_nullable_to_non_nullable
@@ -2725,6 +2741,7 @@ class _$UserStepProgressImpl implements _UserStepProgress {
     @JsonKey(name: 'is_step_completed') this.isStepCompleted = false,
     @JsonKey(name: 'step_final_passed') this.stepFinalPassed = false,
     this.stars = 0,
+    @JsonKey(name: 'best_score') this.bestScore = 0,
     @JsonKey(name: 'completed_at') this.completedAt,
   });
 
@@ -2751,13 +2768,18 @@ class _$UserStepProgressImpl implements _UserStepProgress {
   @override
   @JsonKey()
   final int stars;
+
+  /// Best accuracy (0-100) — shown on completed lesson nodes (docs 6.4).
+  @override
+  @JsonKey(name: 'best_score')
+  final int bestScore;
   @override
   @JsonKey(name: 'completed_at')
   final DateTime? completedAt;
 
   @override
   String toString() {
-    return 'UserStepProgress(id: $id, userId: $userId, stepId: $stepId, testsCompleted: $testsCompleted, isStepCompleted: $isStepCompleted, stepFinalPassed: $stepFinalPassed, stars: $stars, completedAt: $completedAt)';
+    return 'UserStepProgress(id: $id, userId: $userId, stepId: $stepId, testsCompleted: $testsCompleted, isStepCompleted: $isStepCompleted, stepFinalPassed: $stepFinalPassed, stars: $stars, bestScore: $bestScore, completedAt: $completedAt)';
   }
 
   @override
@@ -2775,6 +2797,8 @@ class _$UserStepProgressImpl implements _UserStepProgress {
             (identical(other.stepFinalPassed, stepFinalPassed) ||
                 other.stepFinalPassed == stepFinalPassed) &&
             (identical(other.stars, stars) || other.stars == stars) &&
+            (identical(other.bestScore, bestScore) ||
+                other.bestScore == bestScore) &&
             (identical(other.completedAt, completedAt) ||
                 other.completedAt == completedAt));
   }
@@ -2790,6 +2814,7 @@ class _$UserStepProgressImpl implements _UserStepProgress {
     isStepCompleted,
     stepFinalPassed,
     stars,
+    bestScore,
     completedAt,
   );
 
@@ -2819,6 +2844,7 @@ abstract class _UserStepProgress implements UserStepProgress {
     @JsonKey(name: 'is_step_completed') final bool isStepCompleted,
     @JsonKey(name: 'step_final_passed') final bool stepFinalPassed,
     final int stars,
+    @JsonKey(name: 'best_score') final int bestScore,
     @JsonKey(name: 'completed_at') final DateTime? completedAt,
   }) = _$UserStepProgressImpl;
 
@@ -2844,6 +2870,11 @@ abstract class _UserStepProgress implements UserStepProgress {
   bool get stepFinalPassed;
   @override
   int get stars;
+
+  /// Best accuracy (0-100) — shown on completed lesson nodes (docs 6.4).
+  @override
+  @JsonKey(name: 'best_score')
+  int get bestScore;
   @override
   @JsonKey(name: 'completed_at')
   DateTime? get completedAt;

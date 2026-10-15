@@ -11,9 +11,9 @@ _$LeaderboardEntryImpl _$$LeaderboardEntryImplFromJson(
 ) => _$LeaderboardEntryImpl(
   userId: json['userId'] as String,
   username: json['username'] as String,
-  avatarUrl: json['avatarUrl'] as String?,
   rank: (json['rank'] as num).toInt(),
   xp: (json['xp'] as num).toInt(),
+  avatarUrl: json['avatarUrl'] as String?,
   isCurrentUser: json['isCurrentUser'] as bool? ?? false,
 );
 
@@ -22,8 +22,8 @@ Map<String, dynamic> _$$LeaderboardEntryImplToJson(
 ) => <String, dynamic>{
   'userId': instance.userId,
   'username': instance.username,
-  'avatarUrl': instance.avatarUrl,
   'rank': instance.rank,
   'xp': instance.xp,
+  'avatarUrl': instance.avatarUrl,
   'isCurrentUser': instance.isCurrentUser,
 };

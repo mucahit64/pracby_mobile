@@ -133,6 +133,8 @@ class UserStepProgress with _$UserStepProgress {
     @JsonKey(name: 'is_step_completed') @Default(false) bool isStepCompleted,
     @JsonKey(name: 'step_final_passed') @Default(false) bool stepFinalPassed,
     @Default(0) int stars,
+    /// Best accuracy (0-100) — shown on completed lesson nodes (docs 6.4).
+    @JsonKey(name: 'best_score') @Default(0) int bestScore,
     @JsonKey(name: 'completed_at') DateTime? completedAt,
   }) = _UserStepProgress;
 

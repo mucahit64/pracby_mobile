@@ -30,7 +30,7 @@ class AuthRepository {
     required String username,
     required String password,
     String? examTypeId,
-    Map<String, dynamic>? guestData,
+    Map<String, dynamic> guestPayload = const {},
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       Endpoints.register,
@@ -38,8 +38,11 @@ class AuthRepository {
         'email': email,
         'username': username,
         'password': password,
-        if (examTypeId != null) 'exam_type_id': examTypeId,
-        if (guestData != null) 'guest_data': guestData,
+        // An empty string would be a 400 (docs 3.2).
+        if (examTypeId != null && examTypeId.isNotEmpty)
+          'exam_type_id': examTypeId,
+        // acorn_balance, energy, guest_data (docs 10.8).
+        ...guestPayload,
       },
     );
     return AuthResponse.fromJson(response.data!);
@@ -47,14 +50,16 @@ class AuthRepository {
 
   Future<bool> checkEmail(String email) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '${Endpoints.checkEmail}?email=$email',
+      Endpoints.checkEmail,
+      queryParameters: {'email': email},
     );
     return response.data?['available'] as bool? ?? false;
   }
 
   Future<bool> checkUsername(String username) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
-      '${Endpoints.checkUsername}?username=$username',
+      Endpoints.checkUsername,
+      queryParameters: {'username': username},
     );
     return response.data?['available'] as bool? ?? false;
   }

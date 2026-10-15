@@ -5,6 +5,7 @@ import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/auth/presentation/widgets/auth_close_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -46,7 +47,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final authState = ref.read(authStateProvider);
     if (authState.hasError) {
-      setState(() => _errorMessage = authState.error.toString());
+      // Same message as the web client (pages/auth/login.vue).
+      setState(
+        () => _errorMessage = 'Giriş başarısız. Bilgilerini kontrol et.',
+      );
     } else if (authState.valueOrNull != null) {
       context.go(Routes.home);
     }
@@ -55,6 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(leading: const AuthCloseButton(), leadingWidth: 64),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

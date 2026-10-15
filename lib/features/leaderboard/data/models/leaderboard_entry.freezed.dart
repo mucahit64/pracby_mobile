@@ -23,9 +23,9 @@ LeaderboardEntry _$LeaderboardEntryFromJson(Map<String, dynamic> json) {
 mixin _$LeaderboardEntry {
   String get userId => throw _privateConstructorUsedError;
   String get username => throw _privateConstructorUsedError;
-  String? get avatarUrl => throw _privateConstructorUsedError;
   int get rank => throw _privateConstructorUsedError;
   int get xp => throw _privateConstructorUsedError;
+  String? get avatarUrl => throw _privateConstructorUsedError;
   bool get isCurrentUser => throw _privateConstructorUsedError;
 
   /// Serializes this LeaderboardEntry to a JSON map.
@@ -48,9 +48,9 @@ abstract class $LeaderboardEntryCopyWith<$Res> {
   $Res call({
     String userId,
     String username,
-    String? avatarUrl,
     int rank,
     int xp,
+    String? avatarUrl,
     bool isCurrentUser,
   });
 }
@@ -72,9 +72,9 @@ class _$LeaderboardEntryCopyWithImpl<$Res, $Val extends LeaderboardEntry>
   $Res call({
     Object? userId = null,
     Object? username = null,
-    Object? avatarUrl = freezed,
     Object? rank = null,
     Object? xp = null,
+    Object? avatarUrl = freezed,
     Object? isCurrentUser = null,
   }) {
     return _then(
@@ -87,10 +87,6 @@ class _$LeaderboardEntryCopyWithImpl<$Res, $Val extends LeaderboardEntry>
                 ? _value.username
                 : username // ignore: cast_nullable_to_non_nullable
                       as String,
-            avatarUrl: freezed == avatarUrl
-                ? _value.avatarUrl
-                : avatarUrl // ignore: cast_nullable_to_non_nullable
-                      as String?,
             rank: null == rank
                 ? _value.rank
                 : rank // ignore: cast_nullable_to_non_nullable
@@ -99,6 +95,10 @@ class _$LeaderboardEntryCopyWithImpl<$Res, $Val extends LeaderboardEntry>
                 ? _value.xp
                 : xp // ignore: cast_nullable_to_non_nullable
                       as int,
+            avatarUrl: freezed == avatarUrl
+                ? _value.avatarUrl
+                : avatarUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
             isCurrentUser: null == isCurrentUser
                 ? _value.isCurrentUser
                 : isCurrentUser // ignore: cast_nullable_to_non_nullable
@@ -121,9 +121,9 @@ abstract class _$$LeaderboardEntryImplCopyWith<$Res>
   $Res call({
     String userId,
     String username,
-    String? avatarUrl,
     int rank,
     int xp,
+    String? avatarUrl,
     bool isCurrentUser,
   });
 }
@@ -144,9 +144,9 @@ class __$$LeaderboardEntryImplCopyWithImpl<$Res>
   $Res call({
     Object? userId = null,
     Object? username = null,
-    Object? avatarUrl = freezed,
     Object? rank = null,
     Object? xp = null,
+    Object? avatarUrl = freezed,
     Object? isCurrentUser = null,
   }) {
     return _then(
@@ -159,10 +159,6 @@ class __$$LeaderboardEntryImplCopyWithImpl<$Res>
             ? _value.username
             : username // ignore: cast_nullable_to_non_nullable
                   as String,
-        avatarUrl: freezed == avatarUrl
-            ? _value.avatarUrl
-            : avatarUrl // ignore: cast_nullable_to_non_nullable
-                  as String?,
         rank: null == rank
             ? _value.rank
             : rank // ignore: cast_nullable_to_non_nullable
@@ -171,6 +167,10 @@ class __$$LeaderboardEntryImplCopyWithImpl<$Res>
             ? _value.xp
             : xp // ignore: cast_nullable_to_non_nullable
                   as int,
+        avatarUrl: freezed == avatarUrl
+            ? _value.avatarUrl
+            : avatarUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
         isCurrentUser: null == isCurrentUser
             ? _value.isCurrentUser
             : isCurrentUser // ignore: cast_nullable_to_non_nullable
@@ -186,9 +186,9 @@ class _$LeaderboardEntryImpl implements _LeaderboardEntry {
   const _$LeaderboardEntryImpl({
     required this.userId,
     required this.username,
-    this.avatarUrl,
     required this.rank,
     required this.xp,
+    this.avatarUrl,
     this.isCurrentUser = false,
   });
 
@@ -200,18 +200,18 @@ class _$LeaderboardEntryImpl implements _LeaderboardEntry {
   @override
   final String username;
   @override
-  final String? avatarUrl;
-  @override
   final int rank;
   @override
   final int xp;
+  @override
+  final String? avatarUrl;
   @override
   @JsonKey()
   final bool isCurrentUser;
 
   @override
   String toString() {
-    return 'LeaderboardEntry(userId: $userId, username: $username, avatarUrl: $avatarUrl, rank: $rank, xp: $xp, isCurrentUser: $isCurrentUser)';
+    return 'LeaderboardEntry(userId: $userId, username: $username, rank: $rank, xp: $xp, avatarUrl: $avatarUrl, isCurrentUser: $isCurrentUser)';
   }
 
   @override
@@ -222,10 +222,10 @@ class _$LeaderboardEntryImpl implements _LeaderboardEntry {
             (identical(other.userId, userId) || other.userId == userId) &&
             (identical(other.username, username) ||
                 other.username == username) &&
-            (identical(other.avatarUrl, avatarUrl) ||
-                other.avatarUrl == avatarUrl) &&
             (identical(other.rank, rank) || other.rank == rank) &&
             (identical(other.xp, xp) || other.xp == xp) &&
+            (identical(other.avatarUrl, avatarUrl) ||
+                other.avatarUrl == avatarUrl) &&
             (identical(other.isCurrentUser, isCurrentUser) ||
                 other.isCurrentUser == isCurrentUser));
   }
@@ -236,9 +236,9 @@ class _$LeaderboardEntryImpl implements _LeaderboardEntry {
     runtimeType,
     userId,
     username,
-    avatarUrl,
     rank,
     xp,
+    avatarUrl,
     isCurrentUser,
   );
 
@@ -263,9 +263,9 @@ abstract class _LeaderboardEntry implements LeaderboardEntry {
   const factory _LeaderboardEntry({
     required final String userId,
     required final String username,
-    final String? avatarUrl,
     required final int rank,
     required final int xp,
+    final String? avatarUrl,
     final bool isCurrentUser,
   }) = _$LeaderboardEntryImpl;
 
@@ -277,11 +277,11 @@ abstract class _LeaderboardEntry implements LeaderboardEntry {
   @override
   String get username;
   @override
-  String? get avatarUrl;
-  @override
   int get rank;
   @override
   int get xp;
+  @override
+  String? get avatarUrl;
   @override
   bool get isCurrentUser;
 

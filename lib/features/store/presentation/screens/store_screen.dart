@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
 import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
@@ -15,13 +18,15 @@ class StoreScreen extends ConsumerWidget {
     final itemsAsync = ref.watch(storeItemsProvider);
     final effectsAsync = ref.watch(activeEffectsProvider);
     final user = ref.watch(authStateProvider).valueOrNull;
+    final guest = ref.watch(guestProvider);
+    final isGuest = user == null;
+    final acorns = user?.acorns ?? guest.acornBalance;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mağaza'),
         actions: [
-          if (user != null)
-            Padding(
+          Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -29,7 +34,7 @@ class StoreScreen extends ConsumerWidget {
                   const Icon(Icons.eco, color: AppColors.accent, size: 20),
                   const SizedBox(width: 4),
                   Text(
-                    '${user.acorns}',
+                    '$acorns',
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
@@ -48,6 +53,7 @@ class StoreScreen extends ConsumerWidget {
 
           return CustomScrollView(
             slivers: [
+              if (isGuest) SliverToBoxAdapter(child: _GuestBanner(acorns)),
               if (effects.isNotEmpty) ...[
                 SliverToBoxAdapter(
                   child: Padding(
@@ -89,7 +95,10 @@ class StoreScreen extends ConsumerWidget {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => _StoreItemCard(
                       item: items[index],
-                      userAcorns: user?.acorns ?? 0,
+                      userAcorns: acorns,
+                      // Guests can only buy energy, with local acorns.
+                      enabled: !isGuest ||
+                          items[index].category == 'energy_refill',
                       onPurchase: () => _handlePurchase(context, ref, items[index]),
                     ),
                     childCount: items.length,
@@ -115,9 +124,10 @@ class StoreScreen extends ConsumerWidget {
     StoreItem item,
   ) async {
     final user = ref.read(authStateProvider).valueOrNull;
-    if (user == null) return;
+    final acorns = user?.acorns ?? ref.read(guestProvider).acornBalance;
+    if (user == null && item.category != 'energy_refill') return;
 
-    if (user.acorns < item.price) {
+    if (acorns < item.price) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Yeterli palamut yok! Quiz yaparak kazan.'),
@@ -133,6 +143,10 @@ class StoreScreen extends ConsumerWidget {
     );
 
     if (confirmed ?? false) {
+      if (user == null) {
+        _buyEnergyAsGuest(ref, item);
+        return;
+      }
       try {
         await ref.read(storeRepositoryProvider).purchase(itemId: item.id);
         ref
@@ -159,6 +173,75 @@ class StoreScreen extends ConsumerWidget {
       }
     }
   }
+  /// Docs 10.4: spend local acorns, then add `metadata.energy_count`.
+  void _buyEnergyAsGuest(WidgetRef ref, StoreItem item) {
+    final guest = ref.read(guestProvider.notifier);
+    if (!guest.spendAcorns(item.price)) return;
+    final count = (item.metadata?['energy_count'] as num?)?.toInt() ?? 1;
+    guest.setEnergy(ref.read(guestProvider).energyCount + count);
+  }
+}
+
+/// Web store.vue guest banner.
+class _GuestBanner extends StatelessWidget {
+  const _GuestBanner(this.acorns);
+
+  final int acorns;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.2),
+          width: 2,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Text('🌰', style: TextStyle(fontSize: 24)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.grey800,
+                ),
+                children: [
+                  TextSpan(
+                    text: '$acorns palamut kazandın! ',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const TextSpan(
+                    text: 'Mağazada harcamak için bir profil oluştur!',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () => context.push(Routes.register),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              textStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            child: const Text('Profil Oluştur'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StoreItemCard extends StatelessWidget {
@@ -166,16 +249,28 @@ class _StoreItemCard extends StatelessWidget {
     required this.item,
     required this.userAcorns,
     required this.onPurchase,
+    this.enabled = true,
   });
 
   final StoreItem item;
   final int userAcorns;
   final VoidCallback onPurchase;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final canAfford = userAcorns >= item.price;
 
+    return Opacity(
+      opacity: enabled ? 1 : 0.4,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: _card(canAfford),
+      ),
+    );
+  }
+
+  Widget _card(bool canAfford) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),

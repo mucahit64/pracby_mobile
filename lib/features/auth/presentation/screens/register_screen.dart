@@ -5,7 +5,7 @@ import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
-import 'package:pracby_mobile/features/onboarding/presentation/screens/exam_select_screen.dart';
+import 'package:pracby_mobile/features/auth/presentation/widgets/auth_close_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -37,13 +37,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    final examTypeId = ref.read(selectedExamTypeIdProvider);
-
     await ref.read(authStateProvider.notifier).register(
           email: _emailController.text.trim(),
           username: _usernameController.text.trim(),
           password: _passwordController.text,
-          examTypeId: examTypeId,
         );
 
     if (!mounted) return;
@@ -65,12 +62,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(Routes.login),
-        ),
-      ),
+      appBar: AppBar(leading: const AuthCloseButton(), leadingWidth: 64),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -188,7 +180,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   children: [
                     const Text('Zaten hesabın var mı?'),
                     TextButton(
-                      onPressed: () => context.go(Routes.login),
+                      onPressed: () => context.push(Routes.login),
                       child: const Text('Giriş Yap'),
                     ),
                   ],

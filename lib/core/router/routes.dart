@@ -5,6 +5,9 @@ abstract final class Routes {
   static const String forgotPassword = '/forgot-password';
   static const String resetPassword = '/reset-password';
 
+  /// Shown to guests after a quiz (web: /auth/register-wall).
+  static const String registerWall = '/register-wall';
+
   // Onboarding
   static const String splash = '/splash';
   static const String welcome = '/welcome';
@@ -16,9 +19,22 @@ abstract final class Routes {
   static const String store = '/store';
   static const String profile = '/profile';
 
-  // Quiz
-  static const String quiz = '/quiz/:id';
-  static String quizWithId(String id) => '/quiz/$id';
+  // Quiz — same shape as the web route /quiz/:topicId?stepId&testId&sessionType
+  static const String quiz = '/quiz/:topicId';
+  static String quizPath(
+    String topicId, {
+    String? stepId,
+    String? testId,
+    String? sessionType,
+  }) =>
+      Uri(
+        path: '/quiz/$topicId',
+        queryParameters: {
+          if (stepId != null) 'stepId': stepId,
+          if (testId != null) 'testId': testId,
+          if (sessionType != null) 'sessionType': sessionType,
+        },
+      ).toString();
 
   // Other
   static const String notifications = '/notifications';

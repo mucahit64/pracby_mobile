@@ -1,575 +1,168 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pracby_mobile/core/api/api_client.dart';
+import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/utils/html_utils.dart';
 import 'package:pracby_mobile/core/widgets/html_text.dart';
-import 'package:pracby_mobile/core/widgets/pb_loading.dart';
-import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
-import 'package:pracby_mobile/features/quiz/data/models/question_model.dart';
-import 'package:pracby_mobile/features/quiz/presentation/providers/quiz_provider.dart';
-import 'package:pracby_mobile/features/quiz/presentation/widgets/question_types/fill_blank_text_question.dart';
-import 'package:pracby_mobile/features/quiz/presentation/widgets/question_types/flashcard_question.dart';
-import 'package:pracby_mobile/features/quiz/presentation/widgets/question_types/matching_question.dart';
-import 'package:pracby_mobile/features/quiz/presentation/widgets/question_types/ordering_question.dart';
-import 'package:pracby_mobile/features/quiz/presentation/widgets/question_types/swipe_question.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
+import 'package:pracby_mobile/features/quiz/data/models/question_model.dart';
+import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
+import 'package:pracby_mobile/features/quiz/presentation/providers/quiz_provider.dart';
+import 'package:pracby_mobile/features/quiz/presentation/widgets/feedback_sheet.dart';
+import 'package:pracby_mobile/features/quiz/presentation/widgets/question_inputs.dart';
+import 'package:pracby_mobile/features/quiz/presentation/widgets/quiz_dialogs.dart';
 import 'package:pracby_mobile/features/quiz/presentation/widgets/quiz_result_screen.dart';
+import 'package:pracby_mobile/features/quiz/presentation/widgets/report_question_dialog.dart';
 
-class QuizScreen extends ConsumerStatefulWidget {
-  const QuizScreen({
-    required this.stepId,
-    this.topicId = '',
-    super.key,
-  });
+/// Quiz page, mirroring the web client's `pages/quiz/[id].vue`.
+class QuizScreen extends ConsumerWidget {
+  const QuizScreen({required this.params, super.key});
 
-  final String stepId;
-  final String topicId;
+  final QuizParams params;
 
   @override
-  ConsumerState<QuizScreen> createState() => _QuizScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = quizControllerProvider(params);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
 
-class _QuizScreenState extends ConsumerState<QuizScreen>
-    with SingleTickerProviderStateMixin {
-  String? _selectedAnswerId;
-  bool _answered = false;
-  late AnimationController _feedbackController;
-  late Animation<double> _feedbackAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _feedbackController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _feedbackAnimation = CurvedAnimation(
-      parent: _feedbackController,
-      curve: Curves.easeOut,
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(quizStateProvider.notifier).startQuiz(
-            stepId: widget.stepId,
-            topicId: widget.topicId,
-          );
+    ref.listen(provider.select((s) => s.exitRequested), (_, exit) {
+      if (exit) _leave(context, ref);
     });
-  }
 
-  @override
-  void dispose() {
-    _feedbackController.dispose();
-    super.dispose();
-  }
-
-  Future<bool> _confirmExit() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Çıkmak istiyor musun?'),
-        content: const Text('İlerleme kaydedilmeyecek.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Devam Et'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Çık'),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
-  void _handleAnswer(String answerId) {
-    if (_answered) return;
-    setState(() {
-      _answered = true;
-      _selectedAnswerId = answerId;
-    });
-    ref.read(quizStateProvider.notifier).submitAnswer(answerId);
-    _feedbackController.forward(from: 0);
-  }
-
-  void _handleNext() {
-    setState(() {
-      _answered = false;
-      _selectedAnswerId = null;
-    });
-    _feedbackController.reset();
-    ref.read(quizStateProvider.notifier).nextQuestion();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final quizState = ref.watch(quizStateProvider);
-    final user = ref.watch(authStateProvider).valueOrNull;
-
-    if (quizState.isFinished) {
-      final hasFinishError = quizState.error != null;
-      return Stack(
-        children: [
-          QuizResultScreen(
-            correctCount: quizState.correctAnswers,
-            totalCount: quizState.totalQuestions,
-            xpEarned: quizState.xpEarned,
-            onDone: () {
-              ref.invalidate(courseFullProvider);
-              ref.invalidate(coursesByExamProvider);
-              ref.invalidate(coursesByModuleProvider);
-              ref.read(authStateProvider.notifier).refreshUser();
-              Navigator.of(context).pop();
-            },
-          ),
-          if (hasFinishError)
-            Positioned(
-              bottom: 100,
-              left: 16,
-              right: 16,
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning_amber, color: AppColors.error),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'İlerleme kaydedilemedi. Lütfen tekrar dene.',
-                          style: TextStyle(
-                            color: AppColors.error,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => ref
-                            .read(quizStateProvider.notifier)
-                            .retryFinish(),
-                        child: const Text('Tekrar Dene'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
+    final Widget body;
+    if (state.loading) {
+      body = const _Loading();
+    } else if (state.error != null) {
+      body = _Error(message: state.error!, onBack: () => _leave(context, ref));
+    } else if (state.finished) {
+      body = QuizResultScreen(
+        state: state,
+        isBoss: params.sessionType == 'topic_final',
+        onRetry: controller.restart,
+        // Guests see the register wall after each quiz (docs 10.8).
+        onContinue: state.isGuest
+            ? () => context.go(Routes.registerWall)
+            : () => _leave(context, ref),
       );
+    } else if (state.questions.isNotEmpty) {
+      body = _QuizInProgress(state: state, controller: controller);
+    } else {
+      body = const SizedBox.shrink();
     }
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        final should = await _confirmExit();
-        if (should && context.mounted) Navigator.of(context).pop();
+        if (state.finished || state.questions.isEmpty) {
+          _leave(context, ref);
+        } else {
+          controller.handleClose();
+        }
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(quizState, user?.energy ?? 0),
-              Expanded(child: _buildBody(quizState)),
-            ],
-          ),
+        body: Stack(
+          children: [
+            SafeArea(bottom: false, child: body),
+            if (state.dialog == QuizDialog.energyEmpty)
+              EnergyEmptySheet(
+                packages: state.energyPackages,
+                acornBalance: state.acornBalanceForDialog,
+                loading: state.loadingPackages,
+                purchasingId: state.purchasingId,
+                error: state.purchaseError,
+                onBuy: controller.buyEnergy,
+                onDecline: controller.declineEnergyPurchase,
+              ),
+            if (state.dialog == QuizDialog.exitWarning)
+              ExitWarningSheet(
+                onContinue: controller.continueFromWarning,
+                onExit: controller.exit,
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTopBar(QuizState quizState, int energy) {
-    final progress = quizState.totalQuestions > 0
-        ? (quizState.currentIndex) / quizState.totalQuestions
-        : 0.0;
+  /// Back to the page the quiz was opened from — the lesson map keeps its
+  /// module / course — with fresh progress.
+  void _leave(BuildContext context, WidgetRef ref) {
+    ref.invalidate(courseFullProvider);
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(Routes.home);
+    }
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
-      child: Row(
+class _Loading extends StatelessWidget {
+  const _Loading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // X button
-          GestureDetector(
-            onTap: () async {
-              final should = await _confirmExit();
-              if (should && context.mounted) Navigator.of(context).pop();
-            },
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.grey200,
-              ),
-              child: const Icon(Icons.close, size: 18, color: AppColors.grey600),
-            ),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(strokeWidth: 4),
           ),
-          const SizedBox(width: 12),
-          // Progress bar
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 10,
-                backgroundColor: AppColors.grey200,
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
+          SizedBox(height: 12),
+          Text(
+            'Sorular yükleniyor…',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.grey400,
             ),
-          ),
-          const SizedBox(width: 12),
-          // Energy
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.battery_charging_full,
-                color: Color(0xFF22C55E),
-                size: 20,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '$energy',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: AppColors.grey800,
-                ),
-              ),
-            ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildBody(QuizState quizState) {
-    if (quizState.isLoading) {
-      return const PbLoading(message: 'Sorular yükleniyor...');
-    }
+class _Error extends StatelessWidget {
+  const _Error({required this.message, required this.onBack});
 
-    if (quizState.error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: AppColors.error),
-              const SizedBox(height: 16),
-              Text(
-                quizState.error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.grey600),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref
-                    .read(quizStateProvider.notifier)
-                    .startQuiz(
-                        stepId: widget.stepId, topicId: widget.topicId),
-                child: const Text('Tekrar Dene'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  final String message;
+  final VoidCallback onBack;
 
-    final session = quizState.session;
-    if (session == null) return const SizedBox.shrink();
-
-    final question = session.questions[quizState.currentIndex];
-
-    return Column(
-      children: [
-        // Question counter + flag + XP row
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-          child: Row(
-            children: [
-              Text(
-                'Soru ${quizState.currentIndex + 1} / ${quizState.totalQuestions}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.flag_outlined,
-                size: 18,
-                color: AppColors.grey400,
-              ),
-              const SizedBox(width: 12),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.bolt,
-                    size: 16,
-                    color: AppColors.accent,
-                  ),
-                  Text(
-                    '+${quizState.xpEarned} XP',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accent,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        // Question + options
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                HtmlText(data: question.text),
-                const SizedBox(height: 24),
-                _buildQuestionWidget(question),
-              ],
-            ),
-          ),
-        ),
-        // Feedback + Next button
-        if (_answered && quizState.lastAnswerCorrect != null)
-          _buildBottomFeedback(quizState),
-      ],
-    );
-  }
-
-  Widget _buildQuestionWidget(QuestionModel question) {
-    switch (question.type) {
-      case QuestionType.multipleChoice:
-      case QuestionType.trueFalse:
-        return _buildOptions(question);
-      case QuestionType.fillBlank:
-      case QuestionType.fillBlankText:
-      case QuestionType.fillBlankChip:
-        return FillBlankTextQuestion(
-          question: question,
-          onAnswer: _handleTextAnswer,
-          isAnswered: _answered,
-        );
-      case QuestionType.flashcard:
-        return FlashcardQuestion(
-          question: question,
-          onAnswer: (value) => _handleFlashcardAnswer(value == 'known'),
-        );
-      case QuestionType.swipe:
-        return SwipeQuestion(
-          question: question,
-          onAnswer: _handleAnswer,
-        );
-      case QuestionType.matching:
-        return MatchingQuestion(
-          question: question,
-          onAnswer: _handleMatchingAnswer,
-          isAnswered: _answered,
-        );
-      case QuestionType.ordering:
-        return OrderingQuestion(
-          question: question,
-          onAnswer: _handleOrderingAnswer,
-          isAnswered: _answered,
-        );
-    }
-  }
-
-  void _handleTextAnswer(String text) {
-    if (_answered) return;
-    setState(() => _answered = true);
-    ref.read(quizStateProvider.notifier).submitTextAnswer(text);
-    _feedbackController.forward(from: 0);
-  }
-
-  void _handleFlashcardAnswer(bool isCorrect) {
-    if (_answered) return;
-    setState(() => _answered = true);
-    ref.read(quizStateProvider.notifier).submitFlashcardAnswer(isCorrect);
-    _feedbackController.forward(from: 0);
-  }
-
-  void _handleMatchingAnswer(List<Map<String, int>> matchingAnswer) {
-    if (_answered) return;
-    setState(() => _answered = true);
-    ref.read(quizStateProvider.notifier).submitMatchingAnswer(matchingAnswer);
-    _feedbackController.forward(from: 0);
-  }
-
-  void _handleOrderingAnswer(List<int> orderedIndices) {
-    if (_answered) return;
-    setState(() => _answered = true);
-    ref.read(quizStateProvider.notifier).submitOrderingAnswer(orderedIndices);
-    _feedbackController.forward(from: 0);
-  }
-
-  Widget _buildOptions(QuestionModel question) {
-    final options = question.options ?? [];
-    const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-    return Column(
-      children: options.asMap().entries.map((entry) {
-        final idx = entry.key;
-        final opt = entry.value;
-        final label = idx < labels.length ? labels[idx] : '${idx + 1}';
-
-        var borderColor = AppColors.grey200;
-        var bgColor = Colors.white;
-        var labelBg = AppColors.grey100;
-        var labelText = AppColors.grey600;
-
-        if (_answered) {
-          if (opt.isCorrect) {
-            borderColor = AppColors.success;
-            bgColor = AppColors.success.withValues(alpha: 0.06);
-            labelBg = AppColors.success;
-            labelText = Colors.white;
-          } else if (opt.id == _selectedAnswerId && !opt.isCorrect) {
-            borderColor = AppColors.error;
-            bgColor = AppColors.error.withValues(alpha: 0.06);
-            labelBg = AppColors.error;
-            labelText = Colors.white;
-          }
-        } else if (opt.id == _selectedAnswerId) {
-          borderColor = AppColors.primary;
-          bgColor = AppColors.primary.withValues(alpha: 0.06);
-          labelBg = AppColors.primary;
-          labelText = Colors.white;
-        }
-
-        return GestureDetector(
-          onTap: () => _handleAnswer(opt.id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.5),
-              color: bgColor,
-            ),
-            child: Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: labelBg,
-                    border: Border.all(
-                      color: _answered ? Colors.transparent : AppColors.grey300,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: labelText,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: HtmlText(
-                    data: opt.text,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildBottomFeedback(QuizState quizState) {
-    final isCorrect = quizState.lastAnswerCorrect ?? false;
-    final color = isCorrect ? AppColors.success : AppColors.error;
-    final question = quizState.session?.questions[quizState.currentIndex];
-    final isLast =
-        quizState.currentIndex >= quizState.totalQuestions - 1;
-
-    return FadeTransition(
-      opacity: _feedbackAnimation,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          border: Border(top: BorderSide(color: color.withValues(alpha: 0.3))),
-        ),
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Icon(
-                  isCorrect ? Icons.check_circle : Icons.cancel,
-                  color: color,
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isCorrect ? 'Doğru!' : 'Yanlış!',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-            if (!isCorrect && question?.explanation != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                question!.explanation!,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.grey700,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.grey400,
               ),
-            ],
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _handleNext,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: color,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  isLast ? 'Bitir' : 'Devam Et',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onBack,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 46),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+              ),
+              child: const Text(
+                'Öğrenmeye Dön',
+                style: TextStyle(fontWeight: FontWeight.w900),
               ),
             ),
           ],
@@ -579,4 +172,324 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   }
 }
 
+class _QuizInProgress extends ConsumerWidget {
+  const _QuizInProgress({required this.state, required this.controller});
 
+  final QuizState state;
+  final QuizController controller;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final question = state.currentQuestion!;
+    return Column(
+      children: [
+        _TopBar(state: state, onClose: controller.handleClose),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _MetaRow(
+                  question: question,
+                  xpEarned: state.xpEarned,
+                  onReport: () => _report(context, ref, question),
+                ),
+                const SizedBox(height: 16),
+                _QuestionBody(question: question),
+                QuestionInput(
+                  question: question,
+                  state: state,
+                  onAnswer: controller.answer,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (state.answered)
+          FeedbackSheet(
+            key: ValueKey('feedback-${question.id}'),
+            isCorrect: state.lastAnswerCorrect,
+            correctAnswerText: state.correctAnswerText,
+            explanation: question.explanation,
+            onContinue: controller.next,
+            onReport: () => _report(context, ref, question),
+          ),
+      ],
+    );
+  }
+
+  void _report(BuildContext context, WidgetRef ref, QuestionModel question) {
+    showReportQuestionDialog(
+      context,
+      questionId: question.id,
+      // Guests report with their device UUID (docs 9.2).
+      guestId:
+          state.isGuest ? ref.read(guestProvider.notifier).guestId : null,
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.state, required this.onClose});
+
+  final QuizState state;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = state.questions.length;
+    final done = state.answeredCount +
+        (state.answered && state.isLastQuestion ? 1 : 0);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.grey100)),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: onClose,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.grey100,
+                border: Border.all(color: AppColors.grey200),
+              ),
+              child: const Text(
+                '✕',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.grey500,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: total == 0 ? 0 : done / total),
+                duration: const Duration(milliseconds: 500),
+                builder: (_, value, __) => LinearProgressIndicator(
+                  value: value,
+                  minHeight: 8,
+                  backgroundColor: AppColors.grey100,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${state.currentIndex + 1} / $total',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.grey400,
+            ),
+          ),
+          const SizedBox(width: 12),
+          if (state.unlimitedEnergy)
+            const Text(
+              '♾️🔋',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.success,
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0xFFFEE2E2)),
+              ),
+              child: Text(
+                '🔋 ${state.energy}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.error,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({
+    required this.question,
+    required this.xpEarned,
+    required this.onReport,
+  });
+
+  final QuestionModel question;
+  final int xpEarned;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        if (question.examSource != null && question.examSource!.isNotEmpty)
+          Flexible(
+            child: _Pill(
+              text: '📚 ${question.examSource}',
+              color: const Color(0xFF2563EB),
+              background: const Color(0xFFEFF6FF),
+              border: const Color(0xFFDBEAFE),
+            ),
+          ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Soruyu Raporla',
+          onPressed: onReport,
+          icon: const Icon(
+            Icons.flag_outlined,
+            size: 18,
+            color: AppColors.grey300,
+          ),
+        ),
+        _Pill(
+          text: '⚡ +$xpEarned XP',
+          color: AppColors.primary,
+          background: AppColors.primary.withValues(alpha: 0.1),
+          border: AppColors.primary.withValues(alpha: 0.2),
+        ),
+      ],
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.text,
+    required this.color,
+    required this.background,
+    required this.border,
+  });
+
+  final String text;
+  final Color color;
+  final Color background;
+  final Color border;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        text,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+/// Question text with the image at the `<!--img-->` marker (docs 8.2).
+/// Swipe and fill-blank questions render their own text.
+class _QuestionBody extends StatelessWidget {
+  const _QuestionBody({required this.question});
+
+  final QuestionModel question;
+
+  @override
+  Widget build(BuildContext context) {
+    final showText = question.type != QuestionType.swipe &&
+        question.type != QuestionType.fillBlank;
+    final parts = HtmlUtils.splitAtImage(question.text);
+
+    Widget text(String html) => Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: HtmlText(data: html, fontSize: 16),
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showText && parts.before.trim().isNotEmpty) text(parts.before),
+        if (question.imageUrl != null && question.imageUrl!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: _QuestionImage(path: question.imageUrl!),
+          ),
+        if (showText && parts.after.trim().isNotEmpty) text(parts.after),
+      ],
+    );
+  }
+}
+
+class _QuestionImage extends StatelessWidget {
+  const _QuestionImage({required this.path});
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 224),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: CachedNetworkImage(
+            // Served by the web server, not the API (docs 8.3).
+            imageUrl: '$webBaseUrl/$path',
+            fit: BoxFit.contain,
+            errorWidget: (_, __, ___) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: Color(0xFFD97706),
+                  ),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Bu sorunun görseli yüklenemedi veya eksik.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

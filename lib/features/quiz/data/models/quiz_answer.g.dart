@@ -9,10 +9,10 @@ part of 'quiz_answer.dart';
 _$QuizAnswerImpl _$$QuizAnswerImplFromJson(Map<String, dynamic> json) =>
     _$QuizAnswerImpl(
       questionId: json['questionId'] as String,
+      answeredAt: json['answeredAt'] as String,
       answerId: json['answerId'] as String?,
-      timeSpent: (json['timeSpent'] as num).toInt(),
-      isCorrect: json['isCorrect'] as bool? ?? false,
       isSkipped: json['isSkipped'] as bool? ?? false,
+      timeSpent: (json['timeSpent'] as num?)?.toInt(),
       textAnswer: json['textAnswer'] as String?,
       matchingAnswer: (json['matchingAnswer'] as List<dynamic>?)
           ?.map((e) => MatchingAnswerPair.fromJson(e as Map<String, dynamic>))
@@ -20,20 +20,22 @@ _$QuizAnswerImpl _$$QuizAnswerImplFromJson(Map<String, dynamic> json) =>
       orderedIndices: (json['orderedIndices'] as List<dynamic>?)
           ?.map((e) => (e as num).toInt())
           .toList(),
-      answeredAt: json['answeredAt'] as String?,
+      isCorrect: json['isCorrect'] as bool?,
     );
 
 Map<String, dynamic> _$$QuizAnswerImplToJson(_$QuizAnswerImpl instance) =>
     <String, dynamic>{
       'questionId': instance.questionId,
-      'answerId': instance.answerId,
-      'timeSpent': instance.timeSpent,
-      'isCorrect': instance.isCorrect,
-      'isSkipped': instance.isSkipped,
-      'textAnswer': instance.textAnswer,
-      'matchingAnswer': instance.matchingAnswer,
-      'orderedIndices': instance.orderedIndices,
       'answeredAt': instance.answeredAt,
+      if (instance.answerId case final value?) 'answerId': value,
+      'isSkipped': instance.isSkipped,
+      if (instance.timeSpent case final value?) 'timeSpent': value,
+      if (instance.textAnswer case final value?) 'textAnswer': value,
+      if (instance.matchingAnswer?.map((e) => e.toJson()).toList()
+          case final value?)
+        'matchingAnswer': value,
+      if (instance.orderedIndices case final value?) 'orderedIndices': value,
+      if (instance.isCorrect case final value?) 'isCorrect': value,
     };
 
 _$MatchingAnswerPairImpl _$$MatchingAnswerPairImplFromJson(

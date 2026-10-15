@@ -7,8 +7,10 @@ import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider
 import 'package:pracby_mobile/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:pracby_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:pracby_mobile/features/auth/presentation/screens/register_screen.dart';
+import 'package:pracby_mobile/features/auth/presentation/screens/register_wall_screen.dart';
 import 'package:pracby_mobile/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:pracby_mobile/features/friends/presentation/screens/friends_screen.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/screens/course_detail_screen.dart';
 import 'package:pracby_mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:pracby_mobile/features/leaderboard/presentation/screens/leaderboard_screen.dart';
@@ -30,39 +32,62 @@ class _RouterRefreshNotifier extends ChangeNotifier {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterRefreshNotifier();
-  ref.onDispose(notifier.dispose);
-  ref.listen<AsyncValue<UserModel?>>(
-    authStateProvider,
-    (_, __) => notifier.refresh(),
-  );
+  ref
+    ..onDispose(notifier.dispose)
+    ..listen<AsyncValue<UserModel?>>(
+      authStateProvider,
+      (_, __) => notifier.refresh(),
+    )
+    ..listen<bool>(
+      guestProvider.select((g) => g.isActive),
+      (_, __) => notifier.refresh(),
+    );
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: Routes.splash,
     refreshListenable: notifier,
     redirect: (context, state) {
-      final authState = ref.read(authStateProvider);
-      final isLoggedIn = authState.valueOrNull != null;
+      final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
+      final isGuest = !isLoggedIn && ref.read(guestProvider).isActive;
       final path = state.matchedLocation;
-      final isAuthRoute = path == Routes.login ||
-          path == Routes.register ||
-          path == Routes.forgotPassword ||
-          path == Routes.resetPassword;
-      final isSplash = path == Routes.splash;
-      final isOnboarding =
-          path == Routes.welcome || path == Routes.examSelect;
 
-      if (isSplash) return null;
+      const authRoutes = {
+        Routes.login,
+        Routes.register,
+        Routes.forgotPassword,
+        Routes.resetPassword,
+      };
+      const onboardingRoutes = {Routes.splash, Routes.welcome};
+      // What a guest may open (docs 10.2, web middleware/auth.global.ts).
+      final guestAllowed = path == Routes.home ||
+          path == Routes.store ||
+          path == Routes.leaderboard ||
+          path == Routes.registerWall ||
+          path.startsWith('/quiz/');
 
-      if (!isLoggedIn && !isAuthRoute && !isOnboarding) {
-        return Routes.login;
+      if (path == Routes.splash) return null;
+
+      if (isLoggedIn) {
+        if (authRoutes.contains(path) ||
+            path == Routes.welcome ||
+            path == Routes.registerWall) {
+          return Routes.home;
+        }
+        return null;
       }
 
-      if (isLoggedIn && isAuthRoute) {
-        return Routes.home;
+      if (authRoutes.contains(path) ||
+          onboardingRoutes.contains(path) ||
+          path == Routes.examSelect) {
+        return null;
       }
-
-      return null;
+      if (isGuest) {
+        // Profile, friends, notifications… need an account.
+        return guestAllowed ? null : Routes.register;
+      }
+      // Neither logged in nor a guest with an exam (e.g. after a 401).
+      return Routes.login;
     },
     routes: [
       GoRoute(
@@ -94,6 +119,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.resetPassword,
         builder: (context, state) => const ResetPasswordScreen(),
       ),
+      GoRoute(
+        path: Routes.registerWall,
+        builder: (context, state) => const RegisterWallScreen(),
+      ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => _ScaffoldWithNavBar(child: child),
@@ -120,10 +149,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.quiz,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
+          final query = state.uri.queryParameters;
           return QuizScreen(
-            stepId: state.pathParameters['id']!,
-            topicId: extra?['topicId'] as String? ?? '',
+            params: (
+              topicId: state.pathParameters['topicId']!,
+              stepId: query['stepId'],
+              testId: query['testId'],
+              sessionType: query['sessionType'],
+            ),
           );
         },
       ),
@@ -153,18 +186,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-class _ScaffoldWithNavBar extends StatelessWidget {
+class _ScaffoldWithNavBar extends ConsumerWidget {
   const _ScaffoldWithNavBar({required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _calculateSelectedIndex(context),
-        onDestinationSelected: (index) => _onItemTapped(index, context),
+        onDestinationSelected: (index) => _onItemTapped(index, context, ref),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.map_outlined),
@@ -200,7 +233,7 @@ class _ScaffoldWithNavBar extends StatelessWidget {
     return 0;
   }
 
-  void _onItemTapped(int index, BuildContext context) {
+  void _onItemTapped(int index, BuildContext context, WidgetRef ref) {
     switch (index) {
       case 0:
         context.go(Routes.home);
@@ -209,7 +242,12 @@ class _ScaffoldWithNavBar extends StatelessWidget {
       case 2:
         context.go(Routes.store);
       case 3:
-        context.go(Routes.profile);
+        // Guests get the register screen on top of the current tab, so its
+        // ✕ returns to where they were (web: PROFİL → /auth/register).
+        final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
+        isLoggedIn
+            ? context.go(Routes.profile)
+            : context.push(Routes.register);
     }
   }
 }

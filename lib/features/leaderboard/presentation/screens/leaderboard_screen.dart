@@ -84,7 +84,7 @@ class _LeagueTab extends ConsumerWidget {
       error: (error, _) => Center(child: Text('Hata: $error')),
       data: (entries) {
         if (entries.isEmpty) {
-          return const Center(child: Text('Henüz veri yok'));
+          return const Center(child: Text('Bu ligde henüz kimse yok.'));
         }
 
         return ListView.builder(

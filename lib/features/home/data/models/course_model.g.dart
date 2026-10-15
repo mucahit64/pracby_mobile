@@ -108,11 +108,11 @@ Map<String, dynamic> _$$CourseModelImplToJson(_$CourseModelImpl instance) =>
 _$TopicModelImpl _$$TopicModelImplFromJson(Map<String, dynamic> json) =>
     _$TopicModelImpl(
       id: json['id'] as String,
-      courseId: json['course_id'] as String?,
       title: json['name'] as String,
+      order: (json['sort_order'] as num).toInt(),
+      courseId: json['course_id'] as String?,
       description: json['description'] as String?,
       iconUrl: json['icon_url'] as String?,
-      order: (json['sort_order'] as num).toInt(),
       totalLessons: (json['total_lessons'] as num?)?.toInt() ?? 0,
       maxCrownLevel: (json['max_crown_level'] as num?)?.toInt() ?? 5,
       unlockAfter: json['unlock_after'] as String?,
@@ -132,11 +132,11 @@ _$TopicModelImpl _$$TopicModelImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$TopicModelImplToJson(_$TopicModelImpl instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'course_id': instance.courseId,
       'name': instance.title,
+      'sort_order': instance.order,
+      'course_id': instance.courseId,
       'description': instance.description,
       'icon_url': instance.iconUrl,
-      'sort_order': instance.order,
       'total_lessons': instance.totalLessons,
       'max_crown_level': instance.maxCrownLevel,
       'unlock_after': instance.unlockAfter,
@@ -148,11 +148,11 @@ Map<String, dynamic> _$$TopicModelImplToJson(_$TopicModelImpl instance) =>
 _$StepModelImpl _$$StepModelImplFromJson(Map<String, dynamic> json) =>
     _$StepModelImpl(
       id: json['id'] as String,
+      order: (json['sort_order'] as num).toInt(),
+      type: $enumDecode(_$StepTypeEnumMap, json['step_type']),
       topicId: json['topic_id'] as String?,
       title: json['name'] as String? ?? '',
       description: json['description'] as String?,
-      order: (json['sort_order'] as num).toInt(),
-      type: $enumDecode(_$StepTypeEnumMap, json['step_type']),
       testsRequired: (json['tests_required'] as num?)?.toInt() ?? 5,
       rewardType: json['reward_type'] as String?,
       rewardAmount: (json['reward_amount'] as num?)?.toInt(),
@@ -165,11 +165,11 @@ _$StepModelImpl _$$StepModelImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$StepModelImplToJson(_$StepModelImpl instance) =>
     <String, dynamic>{
       'id': instance.id,
+      'sort_order': instance.order,
+      'step_type': _$StepTypeEnumMap[instance.type]!,
       'topic_id': instance.topicId,
       'name': instance.title,
       'description': instance.description,
-      'sort_order': instance.order,
-      'step_type': _$StepTypeEnumMap[instance.type]!,
       'tests_required': instance.testsRequired,
       'reward_type': instance.rewardType,
       'reward_amount': instance.rewardAmount,
@@ -224,6 +224,7 @@ _$UserStepProgressImpl _$$UserStepProgressImplFromJson(
   isStepCompleted: json['is_step_completed'] as bool? ?? false,
   stepFinalPassed: json['step_final_passed'] as bool? ?? false,
   stars: (json['stars'] as num?)?.toInt() ?? 0,
+  bestScore: (json['best_score'] as num?)?.toInt() ?? 0,
   completedAt: json['completed_at'] == null
       ? null
       : DateTime.parse(json['completed_at'] as String),
@@ -239,5 +240,6 @@ Map<String, dynamic> _$$UserStepProgressImplToJson(
   'is_step_completed': instance.isStepCompleted,
   'step_final_passed': instance.stepFinalPassed,
   'stars': instance.stars,
+  'best_score': instance.bestScore,
   'completed_at': instance.completedAt?.toIso8601String(),
 };

@@ -22,15 +22,19 @@ QuizAnswer _$QuizAnswerFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$QuizAnswer {
   String get questionId => throw _privateConstructorUsedError;
+
+  /// ISO 8601 in UTC (`...Z`); Zod's `datetime()` rejects local offsets.
+  String get answeredAt => throw _privateConstructorUsedError;
   String? get answerId => throw _privateConstructorUsedError;
-  int get timeSpent => throw _privateConstructorUsedError;
-  bool get isCorrect => throw _privateConstructorUsedError;
   bool get isSkipped => throw _privateConstructorUsedError;
+  int? get timeSpent => throw _privateConstructorUsedError;
   String? get textAnswer => throw _privateConstructorUsedError;
   List<MatchingAnswerPair>? get matchingAnswer =>
       throw _privateConstructorUsedError;
   List<int>? get orderedIndices => throw _privateConstructorUsedError;
-  String? get answeredAt => throw _privateConstructorUsedError;
+
+  /// Only for flashcards; the server grades every other type itself.
+  bool? get isCorrect => throw _privateConstructorUsedError;
 
   /// Serializes this QuizAnswer to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -51,14 +55,14 @@ abstract class $QuizAnswerCopyWith<$Res> {
   @useResult
   $Res call({
     String questionId,
+    String answeredAt,
     String? answerId,
-    int timeSpent,
-    bool isCorrect,
     bool isSkipped,
+    int? timeSpent,
     String? textAnswer,
     List<MatchingAnswerPair>? matchingAnswer,
     List<int>? orderedIndices,
-    String? answeredAt,
+    bool? isCorrect,
   });
 }
 
@@ -78,14 +82,14 @@ class _$QuizAnswerCopyWithImpl<$Res, $Val extends QuizAnswer>
   @override
   $Res call({
     Object? questionId = null,
+    Object? answeredAt = null,
     Object? answerId = freezed,
-    Object? timeSpent = null,
-    Object? isCorrect = null,
     Object? isSkipped = null,
+    Object? timeSpent = freezed,
     Object? textAnswer = freezed,
     Object? matchingAnswer = freezed,
     Object? orderedIndices = freezed,
-    Object? answeredAt = freezed,
+    Object? isCorrect = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -93,22 +97,22 @@ class _$QuizAnswerCopyWithImpl<$Res, $Val extends QuizAnswer>
                 ? _value.questionId
                 : questionId // ignore: cast_nullable_to_non_nullable
                       as String,
+            answeredAt: null == answeredAt
+                ? _value.answeredAt
+                : answeredAt // ignore: cast_nullable_to_non_nullable
+                      as String,
             answerId: freezed == answerId
                 ? _value.answerId
                 : answerId // ignore: cast_nullable_to_non_nullable
                       as String?,
-            timeSpent: null == timeSpent
-                ? _value.timeSpent
-                : timeSpent // ignore: cast_nullable_to_non_nullable
-                      as int,
-            isCorrect: null == isCorrect
-                ? _value.isCorrect
-                : isCorrect // ignore: cast_nullable_to_non_nullable
-                      as bool,
             isSkipped: null == isSkipped
                 ? _value.isSkipped
                 : isSkipped // ignore: cast_nullable_to_non_nullable
                       as bool,
+            timeSpent: freezed == timeSpent
+                ? _value.timeSpent
+                : timeSpent // ignore: cast_nullable_to_non_nullable
+                      as int?,
             textAnswer: freezed == textAnswer
                 ? _value.textAnswer
                 : textAnswer // ignore: cast_nullable_to_non_nullable
@@ -121,10 +125,10 @@ class _$QuizAnswerCopyWithImpl<$Res, $Val extends QuizAnswer>
                 ? _value.orderedIndices
                 : orderedIndices // ignore: cast_nullable_to_non_nullable
                       as List<int>?,
-            answeredAt: freezed == answeredAt
-                ? _value.answeredAt
-                : answeredAt // ignore: cast_nullable_to_non_nullable
-                      as String?,
+            isCorrect: freezed == isCorrect
+                ? _value.isCorrect
+                : isCorrect // ignore: cast_nullable_to_non_nullable
+                      as bool?,
           )
           as $Val,
     );
@@ -142,14 +146,14 @@ abstract class _$$QuizAnswerImplCopyWith<$Res>
   @useResult
   $Res call({
     String questionId,
+    String answeredAt,
     String? answerId,
-    int timeSpent,
-    bool isCorrect,
     bool isSkipped,
+    int? timeSpent,
     String? textAnswer,
     List<MatchingAnswerPair>? matchingAnswer,
     List<int>? orderedIndices,
-    String? answeredAt,
+    bool? isCorrect,
   });
 }
 
@@ -168,14 +172,14 @@ class __$$QuizAnswerImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? questionId = null,
+    Object? answeredAt = null,
     Object? answerId = freezed,
-    Object? timeSpent = null,
-    Object? isCorrect = null,
     Object? isSkipped = null,
+    Object? timeSpent = freezed,
     Object? textAnswer = freezed,
     Object? matchingAnswer = freezed,
     Object? orderedIndices = freezed,
-    Object? answeredAt = freezed,
+    Object? isCorrect = freezed,
   }) {
     return _then(
       _$QuizAnswerImpl(
@@ -183,22 +187,22 @@ class __$$QuizAnswerImplCopyWithImpl<$Res>
             ? _value.questionId
             : questionId // ignore: cast_nullable_to_non_nullable
                   as String,
+        answeredAt: null == answeredAt
+            ? _value.answeredAt
+            : answeredAt // ignore: cast_nullable_to_non_nullable
+                  as String,
         answerId: freezed == answerId
             ? _value.answerId
             : answerId // ignore: cast_nullable_to_non_nullable
                   as String?,
-        timeSpent: null == timeSpent
-            ? _value.timeSpent
-            : timeSpent // ignore: cast_nullable_to_non_nullable
-                  as int,
-        isCorrect: null == isCorrect
-            ? _value.isCorrect
-            : isCorrect // ignore: cast_nullable_to_non_nullable
-                  as bool,
         isSkipped: null == isSkipped
             ? _value.isSkipped
             : isSkipped // ignore: cast_nullable_to_non_nullable
                   as bool,
+        timeSpent: freezed == timeSpent
+            ? _value.timeSpent
+            : timeSpent // ignore: cast_nullable_to_non_nullable
+                  as int?,
         textAnswer: freezed == textAnswer
             ? _value.textAnswer
             : textAnswer // ignore: cast_nullable_to_non_nullable
@@ -211,28 +215,29 @@ class __$$QuizAnswerImplCopyWithImpl<$Res>
             ? _value._orderedIndices
             : orderedIndices // ignore: cast_nullable_to_non_nullable
                   as List<int>?,
-        answeredAt: freezed == answeredAt
-            ? _value.answeredAt
-            : answeredAt // ignore: cast_nullable_to_non_nullable
-                  as String?,
+        isCorrect: freezed == isCorrect
+            ? _value.isCorrect
+            : isCorrect // ignore: cast_nullable_to_non_nullable
+                  as bool?,
       ),
     );
   }
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
 class _$QuizAnswerImpl implements _QuizAnswer {
   const _$QuizAnswerImpl({
     required this.questionId,
+    required this.answeredAt,
     this.answerId,
-    required this.timeSpent,
-    this.isCorrect = false,
     this.isSkipped = false,
+    this.timeSpent,
     this.textAnswer,
     final List<MatchingAnswerPair>? matchingAnswer,
     final List<int>? orderedIndices,
-    this.answeredAt,
+    this.isCorrect,
   }) : _matchingAnswer = matchingAnswer,
        _orderedIndices = orderedIndices;
 
@@ -241,16 +246,17 @@ class _$QuizAnswerImpl implements _QuizAnswer {
 
   @override
   final String questionId;
+
+  /// ISO 8601 in UTC (`...Z`); Zod's `datetime()` rejects local offsets.
+  @override
+  final String answeredAt;
   @override
   final String? answerId;
   @override
-  final int timeSpent;
-  @override
-  @JsonKey()
-  final bool isCorrect;
-  @override
   @JsonKey()
   final bool isSkipped;
+  @override
+  final int? timeSpent;
   @override
   final String? textAnswer;
   final List<MatchingAnswerPair>? _matchingAnswer;
@@ -273,12 +279,13 @@ class _$QuizAnswerImpl implements _QuizAnswer {
     return EqualUnmodifiableListView(value);
   }
 
+  /// Only for flashcards; the server grades every other type itself.
   @override
-  final String? answeredAt;
+  final bool? isCorrect;
 
   @override
   String toString() {
-    return 'QuizAnswer(questionId: $questionId, answerId: $answerId, timeSpent: $timeSpent, isCorrect: $isCorrect, isSkipped: $isSkipped, textAnswer: $textAnswer, matchingAnswer: $matchingAnswer, orderedIndices: $orderedIndices, answeredAt: $answeredAt)';
+    return 'QuizAnswer(questionId: $questionId, answeredAt: $answeredAt, answerId: $answerId, isSkipped: $isSkipped, timeSpent: $timeSpent, textAnswer: $textAnswer, matchingAnswer: $matchingAnswer, orderedIndices: $orderedIndices, isCorrect: $isCorrect)';
   }
 
   @override
@@ -288,14 +295,14 @@ class _$QuizAnswerImpl implements _QuizAnswer {
             other is _$QuizAnswerImpl &&
             (identical(other.questionId, questionId) ||
                 other.questionId == questionId) &&
+            (identical(other.answeredAt, answeredAt) ||
+                other.answeredAt == answeredAt) &&
             (identical(other.answerId, answerId) ||
                 other.answerId == answerId) &&
-            (identical(other.timeSpent, timeSpent) ||
-                other.timeSpent == timeSpent) &&
-            (identical(other.isCorrect, isCorrect) ||
-                other.isCorrect == isCorrect) &&
             (identical(other.isSkipped, isSkipped) ||
                 other.isSkipped == isSkipped) &&
+            (identical(other.timeSpent, timeSpent) ||
+                other.timeSpent == timeSpent) &&
             (identical(other.textAnswer, textAnswer) ||
                 other.textAnswer == textAnswer) &&
             const DeepCollectionEquality().equals(
@@ -306,8 +313,8 @@ class _$QuizAnswerImpl implements _QuizAnswer {
               other._orderedIndices,
               _orderedIndices,
             ) &&
-            (identical(other.answeredAt, answeredAt) ||
-                other.answeredAt == answeredAt));
+            (identical(other.isCorrect, isCorrect) ||
+                other.isCorrect == isCorrect));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -315,14 +322,14 @@ class _$QuizAnswerImpl implements _QuizAnswer {
   int get hashCode => Object.hash(
     runtimeType,
     questionId,
+    answeredAt,
     answerId,
-    timeSpent,
-    isCorrect,
     isSkipped,
+    timeSpent,
     textAnswer,
     const DeepCollectionEquality().hash(_matchingAnswer),
     const DeepCollectionEquality().hash(_orderedIndices),
-    answeredAt,
+    isCorrect,
   );
 
   /// Create a copy of QuizAnswer
@@ -342,14 +349,14 @@ class _$QuizAnswerImpl implements _QuizAnswer {
 abstract class _QuizAnswer implements QuizAnswer {
   const factory _QuizAnswer({
     required final String questionId,
+    required final String answeredAt,
     final String? answerId,
-    required final int timeSpent,
-    final bool isCorrect,
     final bool isSkipped,
+    final int? timeSpent,
     final String? textAnswer,
     final List<MatchingAnswerPair>? matchingAnswer,
     final List<int>? orderedIndices,
-    final String? answeredAt,
+    final bool? isCorrect,
   }) = _$QuizAnswerImpl;
 
   factory _QuizAnswer.fromJson(Map<String, dynamic> json) =
@@ -357,22 +364,26 @@ abstract class _QuizAnswer implements QuizAnswer {
 
   @override
   String get questionId;
+
+  /// ISO 8601 in UTC (`...Z`); Zod's `datetime()` rejects local offsets.
+  @override
+  String get answeredAt;
   @override
   String? get answerId;
   @override
-  int get timeSpent;
-  @override
-  bool get isCorrect;
-  @override
   bool get isSkipped;
+  @override
+  int? get timeSpent;
   @override
   String? get textAnswer;
   @override
   List<MatchingAnswerPair>? get matchingAnswer;
   @override
   List<int>? get orderedIndices;
+
+  /// Only for flashcards; the server grades every other type itself.
   @override
-  String? get answeredAt;
+  bool? get isCorrect;
 
   /// Create a copy of QuizAnswer
   /// with the given fields replaced by the non-null parameter values.
