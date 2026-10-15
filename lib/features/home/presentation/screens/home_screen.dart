@@ -11,27 +11,11 @@ import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/map_dialogs.dart';
-import 'package:pracby_mobile/features/home/presentation/widgets/roadmap_node.dart';
+import 'package:pracby_mobile/features/home/presentation/widgets/lesson_map_node.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
 import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
-
-// Topic header colors — matches web app TOPIC_COLORS
-const _kTopicColors = [
-  (Color(0xFF3B82F6), Color(0xFF1D4ED8)), // blue
-  (Color(0xFF10B981), Color(0xFF047857)), // emerald
-  (Color(0xFFF59E0B), Color(0xFFB45309)), // amber
-  (Color(0xFFF43F5E), Color(0xFFBE123C)), // rose
-  (Color(0xFF8B5CF6), Color(0xFF6D28D9)), // violet
-  (Color(0xFF06B6D4), Color(0xFF0E7490)), // cyan
-  (Color(0xFFF97316), Color(0xFFC2410C)), // orange
-  (Color(0xFFD946EF), Color(0xFFA21CAF)), // fuchsia
-  (Color(0xFF14B8A6), Color(0xFF0F766E)), // teal
-  (Color(0xFFEF4444), Color(0xFFB91C1C)), // red
-];
-
-enum _StepStatus { completed, active, locked }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -378,8 +362,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         _CourseRoadmapSection(
           course: CourseModel(id: courseId, title: ''),
-          onStepTap: (stepId, topicId) => context.push(
-            Routes.quizPath(topicId, stepId: stepId, sessionType: 'lesson'),
+          onStart: (topicId, stepId, sessionType) => context.push(
+            Routes.quizPath(topicId, stepId: stepId, sessionType: sessionType),
           ),
         ),
       ],
@@ -441,8 +425,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       itemCount: courses.length,
       itemBuilder: (context, i) => _CourseRoadmapSection(
         course: courses[i],
-        onStepTap: (stepId, topicId) => context.push(
-          Routes.quizPath(topicId, stepId: stepId, sessionType: 'lesson'),
+        onStart: (topicId, stepId, sessionType) => context.push(
+          Routes.quizPath(topicId, stepId: stepId, sessionType: sessionType),
         ),
       ),
     );
@@ -499,10 +483,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _CourseRoadmapSection extends ConsumerWidget {
-  const _CourseRoadmapSection({required this.course, required this.onStepTap});
+  const _CourseRoadmapSection({required this.course, required this.onStart});
 
   final CourseModel course;
-  final void Function(String stepId, String topicId) onStepTap;
+
+  /// Opens the quiz (web route /quiz/:topicId?stepId&sessionType).
+  final void Function(String topicId, String? stepId, String sessionType)
+  onStart;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -522,7 +509,7 @@ class _CourseRoadmapSection extends ConsumerWidget {
             ...full.topics.asMap().entries.map((entry) {
               final idx = entry.key;
               final topic = entry.value;
-              final colors = _kTopicColors[idx % _kTopicColors.length];
+              final colors = topicColors[idx % topicColors.length];
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -535,10 +522,10 @@ class _CourseRoadmapSection extends ConsumerWidget {
                         vertical: 14,
                       ),
                       decoration: BoxDecoration(
-                        color: colors.$1,
+                        color: colors.color,
                         borderRadius: BorderRadius.circular(16),
                         border: Border(
-                          bottom: BorderSide(color: colors.$2, width: 4),
+                          bottom: BorderSide(color: colors.shadow, width: 4),
                         ),
                       ),
                       child: Column(
@@ -548,7 +535,7 @@ class _CourseRoadmapSection extends ConsumerWidget {
                             'BÖLÜM ${idx + 1}',
                             style: const TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               color: Colors.white70,
                               letterSpacing: 1,
                             ),
@@ -558,7 +545,7 @@ class _CourseRoadmapSection extends ConsumerWidget {
                             topic.title,
                             style: const TextStyle(
                               fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w900,
                               color: Colors.white,
                             ),
                           ),
@@ -567,7 +554,7 @@ class _CourseRoadmapSection extends ConsumerWidget {
                     ),
                   ),
                   // Nodes
-                  _buildTopicNodes(context, ref, topic, idx, full.id),
+                  _buildTopicNodes(context, ref, topic, colors, full.id),
                 ],
               );
             }),
@@ -581,76 +568,50 @@ class _CourseRoadmapSection extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     TopicModel topic,
-    int topicIndex,
+    TopicColor color,
     String courseId,
   ) {
-    final steps = topic.steps;
-    if (steps.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: RoadmapNode(topic: topic, alignment: 0, onTap: () {}),
-        ),
-      );
-    }
-
-    // Compute step statuses: completed → active (first non-completed) → locked
-    final isTopicAccessible = topic.progress?.isUnlocked ?? true;
-    var foundActive = false;
-    final statuses = steps.map((step) {
-      if (!isTopicAccessible) return _StepStatus.locked;
-      final isCompleted = step.progress?.isStepCompleted ?? false;
-      if (isCompleted) return _StepStatus.completed;
-      if (!foundActive) {
-        foundActive = true;
-        return _StepStatus.active;
-      }
-      return _StepStatus.locked;
-    }).toList();
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+    final nodes = buildLessonNodes(topic);
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: steps.length,
-      itemBuilder: (context, stepIdx) {
-        final step = steps[stepIdx];
-        final status = statuses[stepIdx];
-        final alignment = _zigzagAlignment(topicIndex * steps.length + stepIdx);
-        return GestureDetector(
-          onTap: status != _StepStatus.locked
-              ? () =>
-                    _showStepDialog(context, ref, topic, step, status, courseId)
-              : null,
-          child: Container(
-            alignment: Alignment(alignment, 0),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: _StepNode(step: step, status: status),
-          ),
-        );
-      },
+      child: Column(
+        children: [
+          for (final (i, node) in nodes.indexed)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Transform.translate(
+                offset: Offset(nodeOffset(i), 0),
+                child: MapNodeView(
+                  node: node,
+                  topicColor: color,
+                  onTap: _isTappable(node)
+                      ? () => _onNodeTap(context, ref, topic, node, courseId)
+                      : null,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  double _zigzagAlignment(int index) {
-    const positions = [-0.4, 0.0, 0.4, 0.0];
-    return positions[index % positions.length];
-  }
+  /// Locked lessons / boss and claimed chests are disabled (web).
+  bool _isTappable(MapNode node) => switch (node.type) {
+    MapNodeType.chest => node.status == MapNodeStatus.active,
+    _ => node.status != MapNodeStatus.locked,
+  };
 
-  Future<void> _showStepDialog(
+  /// Web `goToLesson`: chest → reward dialog; lesson / boss → energy check,
+  /// then "Teste Hazır mısın?".
+  Future<void> _onNodeTap(
     BuildContext context,
     WidgetRef ref,
     TopicModel topic,
-    StepModel? step,
-    _StepStatus status,
+    MapNode node,
     String courseId,
   ) async {
-    if (step == null || status == _StepStatus.locked) return;
-
-    // Chest: claimed ones are disabled, open ones show the reward dialog
-    // (web pages/index.vue goToLesson / claimReward).
-    if (step.type == StepType.reward) {
-      if (status == _StepStatus.completed) return;
+    final step = node.step;
+    if (node.type == MapNodeType.chest && step != null) {
       final amount = step.rewardAmount ?? 10;
       final claim = await showRewardStepDialog(context, rewardAmount: amount);
       if (!claim) return;
@@ -683,96 +644,12 @@ class _CourseRoadmapSection extends ConsumerWidget {
     }
     if (!context.mounted) return;
     final start = await showStepPreviewDialog(context);
-    if (start) onStepTap(step.id, topic.id);
-  }
-}
-
-class _StepNode extends StatelessWidget {
-  const _StepNode({required this.step, required this.status});
-
-  final StepModel step;
-  final _StepStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final isLocked = status == _StepStatus.locked;
-    final isCompleted = status == _StepStatus.completed;
-    final isReward = step.type == StepType.reward;
-
-    Color nodeColor;
-    if (isLocked) {
-      nodeColor = AppColors.grey300;
-    } else if (isReward) {
-      nodeColor = AppColors.accent;
-    } else if (isCompleted) {
-      nodeColor = AppColors.success;
+    if (!start) return;
+    if (node.type == MapNodeType.boss) {
+      // Topic final: no step (docs 6.4).
+      onStart(topic.id, null, 'topic_final');
     } else {
-      nodeColor = AppColors.primary;
+      onStart(topic.id, step?.id, 'lesson');
     }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            if (!isLocked)
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: nodeColor.withValues(alpha: 0.15),
-                ),
-              ),
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: nodeColor,
-                boxShadow: isLocked
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: nodeColor.withValues(alpha: 0.35),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-              ),
-              child: Center(
-                child: Icon(
-                  isLocked
-                      ? Icons.lock
-                      : isReward
-                      ? Icons.card_giftcard
-                      : isCompleted
-                      ? Icons.check_circle_outline
-                      : Icons.menu_book_outlined,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        SizedBox(
-          width: 90,
-          child: Text(
-            step.title,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: isLocked ? AppColors.grey400 : AppColors.grey700,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
   }
 }
