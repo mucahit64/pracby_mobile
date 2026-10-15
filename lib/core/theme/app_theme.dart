@@ -15,7 +15,7 @@ abstract final class AppTheme {
         surface: AppColors.white,
       ),
       scaffoldBackgroundColor: AppColors.white,
-      textTheme: GoogleFonts.interTextTheme(),
+      textTheme: GoogleFonts.nunitoTextTheme(),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.black,
@@ -30,7 +30,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.nunito(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -44,7 +44,7 @@ abstract final class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           side: const BorderSide(color: AppColors.primary),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.nunito(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -98,7 +98,7 @@ abstract final class AppTheme {
         surface: AppColors.darkSurface,
       ),
       scaffoldBackgroundColor: AppColors.black,
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+      textTheme: GoogleFonts.nunitoTextTheme(ThemeData.dark().textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.black,
         foregroundColor: AppColors.white,
@@ -113,7 +113,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.nunito(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -127,7 +127,7 @@ abstract final class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           side: const BorderSide(color: AppColors.primaryLight),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.nunito(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),

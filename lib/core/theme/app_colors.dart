@@ -3,18 +3,23 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   // Brand
   static const Color primary = Color(0xFF7C3AED);
-  static const Color primaryLight = Color(0xFF9F67FF);
-  static const Color primaryDark = Color(0xFF5B21B6);
+  static const Color primaryLight = Color(0xFF8B5CF6);
+  static const Color primaryDark = Color(0xFF6D28D9);
 
   // Accent
   static const Color accent = Color(0xFFF59E0B);
   static const Color accentLight = Color(0xFFFBBF24);
 
-  // Semantic
-  static const Color success = Color(0xFF10B981);
-  static const Color error = Color(0xFFEF4444);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color info = Color(0xFF3B82F6);
+  // Semantic — same values as the web client's tailwind.config.js
+  static const Color success = Color(0xFF58CC02); // web: positive
+  static const Color error = Color(0xFFFF4B4B); // web: negative
+  static const Color warning = Color(0xFFFF9600);
+  static const Color info = Color(0xFF1CB0F6);
+
+  // Feedback sheet backgrounds (web quiz page)
+  static const Color successSurface = Color(0xFFE9F9EF);
+  static const Color errorSurface = Color(0xFFFDECEC);
+  static const Color acorn = Color(0xFFB45309); // web: text-amber-700
 
   // Neutral
   static const Color white = Color(0xFFFFFFFF);
