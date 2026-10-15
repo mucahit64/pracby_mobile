@@ -224,8 +224,7 @@ class _QuizInProgress extends ConsumerWidget {
       context,
       questionId: question.id,
       // Guests report with their device UUID (docs 9.2).
-      guestId:
-          state.isGuest ? ref.read(guestProvider.notifier).guestId : null,
+      guestId: state.isGuest ? ref.read(guestProvider.notifier).guestId : null,
     );
   }
 }
@@ -239,8 +238,8 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = state.questions.length;
-    final done = state.answeredCount +
-        (state.answered && state.isLastQuestion ? 1 : 0);
+    final done =
+        state.answeredCount + (state.answered && state.isLastQuestion ? 1 : 0);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -418,14 +417,15 @@ class _QuestionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showText = question.type != QuestionType.swipe &&
+    final showText =
+        question.type != QuestionType.swipe &&
         question.type != QuestionType.fillBlank;
     final parts = HtmlUtils.splitAtImage(question.text);
 
     Widget text(String html) => Padding(
-          padding: const EdgeInsets.only(bottom: 20),
-          child: HtmlText(data: html, fontSize: 16),
-        );
+      padding: const EdgeInsets.only(bottom: 20),
+      child: HtmlText(data: html, fontSize: 16),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -449,6 +449,8 @@ class _QuestionImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Web: block mx-auto w-auto max-w-full max-h-56 object-contain rounded-lg
+    // — natural size, at most 224px tall, centered, no fade.
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 224),
@@ -458,6 +460,8 @@ class _QuestionImage extends StatelessWidget {
             // Served by the web server, not the API (docs 8.3).
             imageUrl: '$webBaseUrl/$path',
             fit: BoxFit.contain,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
             errorWidget: (_, __, ___) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
