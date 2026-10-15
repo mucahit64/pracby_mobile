@@ -1,7 +1,7 @@
 # Pracby — Mobil Uygulama Geliştirme Dökümantasyonu
 
 > Bu doküman Pracby mobil uygulamasının (Flutter) nasıl çalışması gerektiğini anlatır. Backend API'leri, veri modelleri, misafir modu, oyun mekanikleri ve ekran akışları buradadır.
-> Son güncelleme: **15 Ekim 2026**. Backend (`pracby/src/`) ve web istemcisi (`pracby/client/`) `main` dalındaki `2fa54ab` commit'i baz alınarak koddan doğrulanmıştır.
+> Son güncelleme: **16 Ekim 2026**. Backend (`pracby/src/`) ve web istemcisi (`pracby/client/`) `main` dalındaki `dcc9fb8` commit'i baz alınarak koddan doğrulanmıştır.
 > Web istemcisi ürünün referans uygulamasıdır. Mobil uygulama, aksi belirtilmedikçe web ile aynı davranmalıdır.
 
 ### İçindekiler
@@ -333,6 +333,7 @@ Her konu için adımlar `sort_order` sırasıyla dolaşılır. Lesson ve sandık
 
 - **Lesson** düğümü quiz'i `topicId + stepId (+ testId)` ve `sessionType: "lesson"` ile başlatır.
 - **Boss** düğümü konunun final sınavıdır: `topicId` + `sessionType: "topic_final"`, `stepId` yok. Kayıtlı kullanıcıya 15 soru gelir. Misafirlere konudan rastgele 10 soru gelir, çünkü misafirde final yoktur (7.1). Boss'u bitirmek hiçbir adımı tamamlamaz.
+- Boss bitince sonuç ekranı "⚔️ Boss Testi Geçildi!" başlığını gösterir (enerji bitip test kesildiyse göstermez). Boss oturumunda `step_id` olmadığı için `finish-bulk` her zaman `step_completed: false` döner; bu yüzden boss ekranı `step_completed`'e bakmaz, yalnızca `sessionType == "topic_final"` kontrol edilir.
 - **Sandık açma:** Kayıtlı kullanıcı için `POST /api/quiz/reward/:stepId/claim` çağrılır, ardından `/full` yeniden yüklenir. Misafir için ödül cihazda verilir (10.7).
 - Enerji ≤ 0 iken lesson başlatılmamalı, enerji diyaloğu açılmalıdır (bkz. 16.1).
 
@@ -441,7 +442,8 @@ Body: { answers: AnswerInput[]; skip_rewards?: boolean }      // skip_rewards de
 ```
 1. Lesson düğümü → POST /api/quiz/start  (403 → enerji diyaloğu)
 2. Her cevapta answers[].is_correct ile anlık geri bildirim. Cevap yerelde biriktirilir.
-   Yanlışta UI'daki enerji 1 azaltılır.
+   Yanlışta UI'daki enerji 1 azaltılır (unlimited_energy aktifse azaltılmaz,
+   enerji diyaloğu da açılmaz — sunucu da düşmez).
 3. Enerji 0'a düşerse sonraki soruya geçmeden ENERJİ DİYALOĞU açılır:
    ├─ Enerji satın alır (POST /store/purchase) → quiz devam eder, ödüller korunur
    └─ Reddeder → "Çıkarsan ilerlemen kaybolur" uyarısı
@@ -630,7 +632,7 @@ class GuestQuizResult {
 String guestId;   // İlk ihtiyaçta UUID v4 üretilir. Kayıt/girişte SİLİNMEZ.
 ```
 
-Seçilen sınav türü, misafir durumundan bağımsız olarak doğru tutulmalıdır. Web'de `guestState` ilk kaydedildiğinde `examTypeId` boş kalabiliyor, bu bir hata. Mobilde tek bir kaynak kullanın.
+Seçilen sınav türü **tek bir kaynaktan** okunmalıdır. Web, sınavı yalnızca `guestExamTypeId` / `guestExamGroupId` anahtarlarında tutar; `guestState` bu değeri kendisi saklamaz, her okumada bu anahtarlardan alır. Böylece misafir sınav değiştirdiğinde kayıt eski sınava yapılmaz. Mobilde bu tek kaynak `GuestState.examTypeId` / `examGroupId` alanlarıdır (`features/guest/guest_provider.dart`).
 
 ### 10.4 Enerji (Yerel)
 Sabitler sunucuyla aynıdır: `MAX_ENERGY = 25`, `REGEN_INTERVAL = 10 dakika`.
@@ -753,25 +755,20 @@ POST /api/auth/merge-guest-progress
   - **XP:** Yalnızca hesapta daha önce tamamlanmamış adımlar için verilir, aynı ilerleme iki kez sayılmaz.
   - **Palamut:** `earned_acorns` bakiyeye eklenir (işlem tipi `guest_sync`). Misafirin harcadığı palamut bu farka dahildir, enerji aktarılmaz.
 
-### 10.10 Mobil Uygulamada Yapılması Gerekenler
-Mevcut mobil kodda misafir desteği yalnızca `guest-start` çağrısı ve kayıtta `guestData` parametresinden ibarettir. Eksikler:
-- [ ] `features/guest`:
-  - `GuestState` modeli ve Hive deposu
-  - `guestId` üretimi
-  - Enerji yenilenme mantığı (10.4)
-  - Palamut işlemleri
-  - Overlay (10.6)
-- [ ] Router:
-  - Token yoksa misafirin girebileceği rotalar: `home`, `courseDetail`, `quiz`, `store`, `leaderboard`.
-  - `profile`, `editProfile`, `friends` ve `notifications` için kayıt ekranına yönlendirme.
-- [ ] Quiz ekranı:
-  - Misafir dalı (yerel puanlama, enerji ve sonuç kaydı)
-  - Bildir butonu ve misafir endpoint'i
-  - Kayıt duvarı
-- [ ] Enerji diyaloğu ve mağaza: misafirin yerel palamutla enerji alması.
-- [ ] Kayıt: `getRegistrationPayload` karşılığı. Kayıt ekranına `acorn_balance`, `energy` ve geçerli adımlara göre filtrelenmiş `guest_data` gönderilmeli.
-- [ ] Giriş: `mergeGuestProgress` çağrısı ve başarıda misafir verisinin temizlenmesi.
-- [ ] `Endpoints`'e `quizGuestReportQuestion = '/api/quiz/guest-report-question'` eklenmeli.
+### 10.10 Mobil Uygulamadaki Durum
+Misafir modu mobilde uygulanmıştır:
+- [x] `features/guest/guest_provider.dart`: `GuestState` + Hive deposu (`guest` kutusu), `guestId` (UUID v4), enerji yenilenmesi (10.4), palamut işlemleri, overlay (10.6)
+- [x] Router: misafir `home`, `quiz`, `store`, `leaderboard` ve kayıt duvarına girer. Profil sekmesi kayıt ekranını mevcut sayfanın üstüne açar. Diğer korumalı rotalar kayıt ekranına yönlendirir.
+- [x] Sınav seçimi (`welcome.vue` karşılığı): misafir sınavı seçince doğrudan ders haritasına gider. Pasif gruplar "Çok Yakında" olarak gösterilir.
+- [x] Quiz: misafir dalı (`guest-start`, yerel puanlama, enerji ve sonuç kaydı), misafir soru bildirimi, sonuçtan sonra kayıt duvarı
+- [x] Enerji diyaloğu ve mağaza: misafir yalnızca enerji paketlerini yerel palamutla alır, diğer ürünler kilitlidir
+- [x] Kayıt: `acorn_balance`, `energy` (yenileme uygulanmış) ve `guest_data` gönderilir, ardından misafir verisi silinir
+- [x] Giriş: ilerleme varsa `merge-guest-progress`; başarıda misafir verisi silinir, hata olursa saklanır
+- [x] `Endpoints.quizGuestReportQuestion`
+
+Kalanlar:
+- [ ] Kayıttan önce `guest_data` içindeki, içerikte artık bulunmayan adım ID'lerinin filtrelenmesi (10.8). Web de henüz filtrelemiyor.
+- [ ] Kayıt ekranının web'deki gibi 3 adımlı sihirbaz olması (hesap → sınav grubu → düzey)
 
 ---
 
@@ -1021,7 +1018,10 @@ Palamut yalnızca mağazada harcanır. İşlem tipleri: `earned_quiz`, `earned_a
 
 ### 16.3 XP
 - Doğru soruların `point_value` toplamıdır (şu an her soru 1). `user_stats.xp` ve `total_xp` değerlerine eklenir.
-- `level`, `daily_xp` ve `weekly_xp` güncellenmez, `level` her zaman 1 döner. Seviye gösterilecekse istemcide `total_xp` değerinden hesaplanmalıdır.
+- `level`, `daily_xp` ve `weekly_xp` güncellenmez, `level` her zaman 1 döner. API'deki `level` kullanılmaz; seviye istemcide hesaplanır:
+  - Seviye = `floor(total_xp / 500) + 1`
+  - Seviye çubuğu = `total_xp % 500` / `500` XP
+  - Web profil sayfası (`pages/profile/index.vue`) bu formülü kullanır, mobil de aynısını kullanmalıdır.
 - Günlük hedef (`daily_goal_xp`) profilde ayarlanır. Bugünkü XP'yi dönen bir endpoint yoktur.
 
 ### 16.4 Seri (Streak)
