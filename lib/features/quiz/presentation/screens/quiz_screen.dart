@@ -190,12 +190,10 @@ class _QuizInProgress extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _MetaRow(
-                  question: question,
-                  xpEarned: state.xpEarned,
-                  onReport: () => _report(context, ref, question),
-                ),
-                const SizedBox(height: 16),
+                if (question.examSource?.isNotEmpty ?? false) ...[
+                  _MetaRow(question: question),
+                  const SizedBox(height: 16),
+                ],
                 _QuestionBody(question: question),
                 QuestionInput(
                   question: question,
@@ -327,46 +325,24 @@ class _TopBar extends StatelessWidget {
   }
 }
 
+/// Past-exam source badge; only built when the question has one.
 class _MetaRow extends StatelessWidget {
-  const _MetaRow({
-    required this.question,
-    required this.xpEarned,
-    required this.onReport,
-  });
+  const _MetaRow({required this.question});
 
   final QuestionModel question;
-  final int xpEarned;
-  final VoidCallback onReport;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (question.examSource != null && question.examSource!.isNotEmpty)
-          Flexible(
-            child: _Pill(
-              text: '📚 ${question.examSource}',
-              color: const Color(0xFF2563EB),
-              background: const Color(0xFFEFF6FF),
-              border: const Color(0xFFDBEAFE),
-            ),
+        Flexible(
+          child: _Pill(
+            text: '📚 ${question.examSource}',
+            color: const Color(0xFF2563EB),
+            background: const Color(0xFFEFF6FF),
+            border: const Color(0xFFDBEAFE),
           ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Soruyu Raporla',
-          onPressed: onReport,
-          icon: const Icon(
-            Icons.flag_outlined,
-            size: 18,
-            color: AppColors.grey300,
-          ),
-        ),
-        _Pill(
-          text: '⚡ +$xpEarned XP',
-          color: AppColors.primary,
-          background: AppColors.primary.withValues(alpha: 0.1),
-          border: AppColors.primary.withValues(alpha: 0.2),
         ),
       ],
     );

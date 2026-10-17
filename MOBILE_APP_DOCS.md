@@ -512,13 +512,13 @@ Cevap verildikten sonra alttan açılan bir panel (bottom sheet) gösterilir:
 - Doğru/yanlış başlığı
 - Yanlışsa doğru seçeneğin `answer_text` değeri (HTML)
 - Açılıp kapanabilen açıklama (mobilde varsayılan kapalı)
-- **"Bildir"** butonu (bkz. Bölüm 9)
+- **"Bildir"** butonu, quiz ekranındaki tek bildirim noktası (bkz. Bölüm 9)
 - "Devam" butonu
 
 ### 8.6 Diğer Alanlar
 - `exam_source` doluysa rozet olarak gösterilir: `📚 2024 KPSS-LİSANS`.
 - `hint` veride vardır ama web'de gösterilmiyor (opsiyonel).
-- Soru üst barında da bir bildir (bayrak) butonu bulunur.
+- Bildir butonu **yalnızca** cevap panelinde bulunur, soru alanında yoktur. Hatalı cevap ve hatalı açıklama gibi sorunlar ancak cevaptan sonra fark edildiği için bildirim cevaptan sonra yapılır (Duolingo'daki gibi).
 
 ### 8.7 Soru Tipleri (`type_data`)
 Backend tüm tipleri destekler, ancak içerikte şimdilik yalnızca `multiple_choice` vardır.

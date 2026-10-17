@@ -30,7 +30,6 @@ class QuizState {
     this.selectedAnswerId,
     this.lastAnswerCorrect = false,
     this.correctCount = 0,
-    this.xpEarned = 0,
     this.acornEarned = 0,
     this.energy = 25,
     this.unlimitedEnergy = false,
@@ -59,7 +58,6 @@ class QuizState {
   final String? selectedAnswerId;
   final bool lastAnswerCorrect;
   final int correctCount;
-  final int xpEarned;
   final int acornEarned;
   final int energy;
   final bool unlimitedEnergy;
@@ -115,7 +113,6 @@ class QuizState {
     String? Function()? selectedAnswerId,
     bool? lastAnswerCorrect,
     int? correctCount,
-    int? xpEarned,
     int? acornEarned,
     int? energy,
     bool? unlimitedEnergy,
@@ -145,7 +142,6 @@ class QuizState {
           : this.selectedAnswerId,
       lastAnswerCorrect: lastAnswerCorrect ?? this.lastAnswerCorrect,
       correctCount: correctCount ?? this.correctCount,
-      xpEarned: xpEarned ?? this.xpEarned,
       acornEarned: acornEarned ?? this.acornEarned,
       energy: energy ?? this.energy,
       unlimitedEnergy: unlimitedEnergy ?? this.unlimitedEnergy,
@@ -323,7 +319,6 @@ class QuizController extends StateNotifier<QuizState> {
       lastAnswerCorrect: isCorrect,
       totalAnswered: state.totalAnswered + 1,
       correctCount: state.correctCount + (isCorrect ? 1 : 0),
-      xpEarned: state.xpEarned + (isCorrect ? 1 : 0),
       energy: energy,
       energyDepleted: energyDepleted,
     );
@@ -382,7 +377,6 @@ class QuizController extends StateNotifier<QuizState> {
       );
       _localAnswers.clear();
       state = state.copyWith(
-        xpEarned: result.xpEarned,
         acornEarned: result.acornEarned,
         correctCount: result.correctAnswers,
         stepCompleted: result.stepCompleted,
