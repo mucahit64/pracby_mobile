@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
+import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
 import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
@@ -148,11 +150,25 @@ class StoreScreen extends ConsumerWidget {
         return;
       }
       try {
-        await ref.read(storeRepositoryProvider).purchase(itemId: item.id);
-        ref
-          ..invalidate(storeItemsProvider)
-          ..invalidate(activeEffectsProvider);
-        await ref.read(authStateProvider.notifier).refreshUser();
+        if (!await _purchaseOnline(ref, user.id, item)) {
+          // Energy works offline (docs 7.5.1): paid locally and queued.
+          // Balance was checked above, so this only fails on a race.
+          final ok = item.category == 'energy_refill' &&
+              await ref.read(authStateProvider.notifier).buyEnergyOffline(item);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  ok
+                      ? 'Satın alındı! İnternet gelince hesabına işlenecek.'
+                      : 'Bu ürün için internet bağlantısı gerekli.',
+                ),
+                backgroundColor: ok ? AppColors.success : AppColors.error,
+              ),
+            );
+          }
+          return;
+        }
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -173,6 +189,31 @@ class StoreScreen extends ConsumerWidget {
       }
     }
   }
+  /// Buys [item] on the server. Returns false without buying when offline or
+  /// when energy can't go first because earlier actions are still queued
+  /// (keeps the server's order of events). Other errors are rethrown.
+  Future<bool> _purchaseOnline(
+    WidgetRef ref,
+    String userId,
+    StoreItem item,
+  ) async {
+    final isEnergy = item.category == 'energy_refill';
+    if (isEnergy && !await ref.read(offlineQueueProvider).flush(userId)) {
+      return false;
+    }
+    try {
+      await ref.read(storeRepositoryProvider).purchase(itemId: item.id);
+    } on ApiException catch (e) {
+      if (e.isNetworkError) return false;
+      rethrow;
+    }
+    ref
+      ..invalidate(storeItemsProvider)
+      ..invalidate(activeEffectsProvider);
+    await ref.read(authStateProvider.notifier).refreshUser();
+    return true;
+  }
+
   /// Docs 10.4: spend local acorns, then add `metadata.energy_count`.
   void _buyEnergyAsGuest(WidgetRef ref, StoreItem item) {
     final guest = ref.read(guestProvider.notifier);

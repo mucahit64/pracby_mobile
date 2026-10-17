@@ -463,8 +463,39 @@ Başlamış bir test internet kesilse de sonuna kadar çözülebilmelidir. Bu y�
   - Bir görsel bağlantı yüzünden inmezse test başlamaz ve "Sorular yüklenemedi. İnternet bağlantını kontrol et." mesajı ile **Tekrar Dene** butonu gösterilir. Kayıtlı kullanıcının açılmış oturumu cevapsız ve `skip_rewards: true` ile kapatılır.
   - Sunucuda olmayan görseller (4xx) testi engellemez. O soruda "görsel yüklenemedi" uyarısı çıkar.
 - **Test sırasında:** Hiç ağ isteği yapılmaz. Puanlama `is_correct` ile cihazda yapılır, enerji yerelde düşer.
-- **Bitişte:** Kayıtlı kullanıcının sonucu gönderilemezse kuyruğa yazılır (7.5, 7. madde) ve sonuç ekranında "senkronize edilecek" durumu gösterilir. Yarıda çıkışta oturumu kapatma isteği de kuyruğa yazılır. Misafir sonucu zaten yereldir.
-- **İnternet gerektirenler:** Soru bildirimi ve enerji paketi listesi internet ister. Enerji diyaloğu çevrimdışıyken "Enerji paketleri yüklenemedi. İnternet bağlantını kontrol et." gösterir, kullanıcı reddedip testten çıkabilir.
+- **Bitişte:** Kayıtlı kullanıcının sonucu gönderilemezse çevrimdışı kuyruğa yazılır. Kazanılan palamut (doğru başına +1) ve kalan enerji yerelde uygulanır, sonuç ekranında "senkronize edilecek" durumu gösterilir. Yarıda çıkışta oturumu kapatma isteği de kuyruğa yazılır. Misafir sonucu zaten yereldir.
+
+#### Çevrimdışı kuyruk (`features/offline/offline_queue.dart`)
+İnternetsiz yapılan **quiz sonucu**, **enerji satın alma**, **sandık açma** ve **soru bildirimi** cihazda hemen uygulanır ve tek bir sıralı kuyruğa (Hive `offline_queue`) yazılır. Kuyruk uygulama açılışında, bağlantı geri geldiğinde ve kullanıcı oturumu belli olduğunda gönderilir.
+
+- **Sıra korunur:** Kayıtlar zamana göre sıralı anahtarlarla tutulur ve sırayla gönderilir. Sıra şunun için gerekli:
+  - Enerji alımı, o enerjiyi harcayan quiz'den önce işlenmeli.
+  - Sandık açma, kendinden önceki dersin sonucundan sonra işlenmeli (sunucu aksi halde 403 verir).
+- **Yeni işlemler kuyruğun arkasına girer:** Kuyrukta kullanıcıya ait bekleyen işlem varken yapılan enerji alımı ve sandık açma, internet olsa bile doğrudan sunucuya gitmez. Önce kuyruk gönderilmeye çalışılır (`flush`), boşalmazsa yeni işlem de kuyruğa eklenir.
+- **Hata durumları:**
+  - Bağlantı hatası, 5xx, 429 veya 401 gelirse gönderim durur. O kayıt ve sonrakiler bir sonraki denemeye kalır.
+  - Diğer 4xx yanıtlarında kayıt atlanır. Örneğin başka cihazda harcandığı için bakiye yetmiyorsa ya da soru zaten bildirildiyse kayıt silinir. Ardından `/users/me` gerçek bakiyeyi gösterir.
+- **Kullanıcıya özel:** Üye işlemleri `userId` ile saklanır ve yalnızca o kullanıcı oturumdayken gönderilir. Misafir bildirimleri (`guestId`) oturumsuz da gönderilir.
+- **Harita:** Kuyruktaki dersler ve sandıklar, sunucuya ulaşana kadar ders haritasında tamamlanmış görünür (`overlayProgress`).
+
+| İşlem | İnternetsizken |
+|-------|----------------|
+| Enerji satın alma (üye) | Yerel palamut yeterliyse düşülür, enerji eklenir (en fazla 25), kuyruğa yazılır. Yalnızca `energy_refill` ürünleri; diğer mağaza ürünleri internet ister |
+| Enerji satın alma (misafir) | Zaten yerel (10.4). Paket listesi önbellekten gelir |
+| Sandık açma (üye) | Palamut yerelde eklenir (`store_item` sandıklarında eklenmez), kuyruğa yazılır, harita güncellenir |
+| Sandık açma (misafir) | Zaten yerel (10.7) |
+| Soru bildirimi | Kuyruğa yazılır, "Raporun internet gelince gönderilecek" gösterilir |
+
+#### Yanıt önbelleği (`core/api/response_cache.dart`)
+Şu GET isteklerinin son başarılı yanıtı Hive'da (`response_cache`) saklanır ve bağlantı yokken bu yanıt döner: `/exam-groups`, `/modules`, `/courses*` (harita dahil), `/store/items`, `/users/me`. Böylece internetsizken:
+- Ders haritası açılır.
+- Enerji paketleri listelenir.
+- Uygulama yeniden açıldığında kayıtlı kullanıcı **misafire düşmez**.
+
+Ek kurallar:
+- **Yerel bakiye:** Yerelde değişen bakiye (`setBalances`) önbellekteki profile de yazılır.
+- **Hesap değişince:** Giriş, kayıt ve çıkışta önbellek temizlenir.
+- **Quiz soruları önbelleğe alınmaz:** Test yalnızca internetle başlar.
 
 ### 7.6 Eski Endpointler (Kullanmayın)
 ```

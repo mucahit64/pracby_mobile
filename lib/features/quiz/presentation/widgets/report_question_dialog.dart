@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
 
 /// "Soruyu Raporla" modal (docs 9, web quiz page report modal).
@@ -76,6 +78,7 @@ class _ReportQuestionDialogState extends ConsumerState<_ReportQuestionDialog> {
         }),
       );
     } on ApiException catch (e) {
+      if (e.isNetworkError) return _queueReport(reason);
       if (!mounted) return;
       setState(
         () => _error = switch (e.statusCode) {
@@ -87,6 +90,28 @@ class _ReportQuestionDialogState extends ConsumerState<_ReportQuestionDialog> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Offline: the report is queued and sent once online (docs 7.5.1).
+  Future<void> _queueReport(String reason) async {
+    await ref.read(offlineQueueProvider).enqueueReport(
+          questionId: widget.questionId,
+          reason: reason,
+          description: _description.text,
+          userId: widget.guestId == null
+              ? ref.read(authStateProvider).valueOrNull?.id
+              : null,
+          guestId: widget.guestId,
+        );
+    if (!mounted) return;
+    setState(
+      () => _success = 'Teşekkürler! Raporun internet gelince gönderilecek.',
+    );
+    unawaited(
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) Navigator.of(context).pop();
+      }),
+    );
   }
 
   @override

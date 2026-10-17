@@ -1,9 +1,14 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_client.dart';
+import 'package:pracby_mobile/core/api/response_cache.dart';
 import 'package:pracby_mobile/core/storage/secure_storage.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
+import 'package:pracby_mobile/features/offline/offline_queue.dart';
+import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 
 final authStateProvider = AsyncNotifierProvider<AuthNotifier, UserModel?>(
   AuthNotifier.new,
@@ -22,6 +27,8 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     final token = await ref.read(secureStorageProvider).getToken();
     if (token == null) return null;
     try {
+      // Offline, this is the cached profile (ResponseCache), so a logged-in
+      // user isn't turned into a guest by a missing connection.
       return await ref.read(authRepositoryProvider).getMe();
     } catch (_) {
       return null;
@@ -40,6 +47,7 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         password: password,
       );
       await ref.read(secureStorageProvider).setToken(response.token);
+      await ref.read(responseCacheProvider).clear();
       // Carry guest progress over to the account (docs 10.9).
       await ref.read(guestProvider.notifier).mergeAfterLogin(repo);
       // Login response has no energy / acorns / active exam (docs 3.3).
@@ -64,6 +72,7 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         guestPayload: guest.registrationPayload(),
       );
       await ref.read(secureStorageProvider).setToken(response.token);
+      await ref.read(responseCacheProvider).clear();
       guest.clear();
       // Register response has no role / permissions / energy (docs 3.2).
       return repo.getMe();
@@ -72,11 +81,13 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
 
   Future<void> logout() async {
     await ref.read(secureStorageProvider).deleteToken();
+    await ref.read(responseCacheProvider).clear();
     state = const AsyncValue.data(null);
   }
 
-  /// Applies balances returned by the API (e.g. a store purchase) without
-  /// refetching `/users/me`.
+  /// Applies balances returned by the API (e.g. a store purchase) or changed
+  /// offline without refetching `/users/me`. They are also written to the
+  /// cached profile so they survive an offline restart.
   void setBalances({int? energy, int? acorns}) {
     final user = state.valueOrNull;
     if (user == null) return;
@@ -86,6 +97,24 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         acorns: acorns ?? user.acorns,
       ),
     );
+    ref.read(responseCacheProvider).patchUser(energy: energy, acorns: acorns);
+  }
+
+  /// Energy purchase without a connection (docs 7.5.1): paid from the local
+  /// acorn balance and queued for the server. Returns false if the balance
+  /// is too low.
+  Future<bool> buyEnergyOffline(StoreItem item) async {
+    final user = state.valueOrNull;
+    if (user == null || user.acorns < item.price) return false;
+    final count = (item.metadata?['energy_count'] as num?)?.toInt() ?? 1;
+    setBalances(
+      acorns: user.acorns - item.price,
+      energy: min(maxEnergy, user.energy + count),
+    );
+    await ref
+        .read(offlineQueueProvider)
+        .enqueuePurchase(userId: user.id, itemId: item.id);
+    return true;
   }
 
   /// Refetches `/users/me`. A failed request (e.g. offline) keeps the

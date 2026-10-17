@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/router/app_router.dart';
 import 'package:pracby_mobile/core/theme/app_theme.dart';
-import 'package:pracby_mobile/features/quiz/domain/offline_quiz_buffer.dart';
+import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
+import 'package:pracby_mobile/features/offline/offline_queue.dart';
 
 class App extends ConsumerStatefulWidget {
   const App({super.key});
@@ -20,16 +22,32 @@ class _AppState extends ConsumerState<App> {
   @override
   void initState() {
     super.initState();
-    // Send quiz results queued while offline: on launch and whenever the
-    // device comes back online (web: /learn mount + `online` event).
-    _syncPendingQuizzes();
+    // Send actions queued while offline (docs 7.5.1): on launch, whenever
+    // the device comes back online and once the logged-in user is known
+    // (member actions are only sent for their own user).
+    unawaited(_syncOfflineQueue());
     _connectivity = Connectivity().onConnectivityChanged.listen((results) {
-      if (!results.contains(ConnectivityResult.none)) _syncPendingQuizzes();
+      if (!results.contains(ConnectivityResult.none)) {
+        unawaited(_syncOfflineQueue());
+      }
+    });
+    ref.listenManual(authStateProvider.select((s) => s.valueOrNull?.id), (
+      _,
+      userId,
+    ) {
+      if (userId != null) unawaited(_syncOfflineQueue());
     });
   }
 
-  void _syncPendingQuizzes() {
-    unawaited(ref.read(offlineQuizBufferProvider).syncPendingSessions());
+  Future<void> _syncOfflineQueue() async {
+    final user = ref.read(authStateProvider).valueOrNull;
+    final changed = await ref.read(offlineQueueProvider).sync(userId: user?.id);
+    if (!changed || !mounted) return;
+    // The server now has the queued actions: show its balances and progress.
+    if (user != null) {
+      await ref.read(authStateProvider.notifier).refreshUser();
+    }
+    ref.invalidate(courseFullProvider);
   }
 
   @override

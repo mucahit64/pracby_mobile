@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_exception.dart';
+import 'package:pracby_mobile/core/api/response_cache.dart';
 import 'package:pracby_mobile/core/storage/secure_storage.dart';
 
 String get _apiBaseUrl {
@@ -33,14 +34,19 @@ String questionImageUrl(String path) => '$webBaseUrl/$path';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
-  final client = ApiClient(secureStorage: secureStorage);
+  final client = ApiClient(
+    secureStorage: secureStorage,
+    responseCache: ref.watch(responseCacheProvider),
+  );
   ref.onDispose(client.dispose);
   return client;
 });
 
 class ApiClient {
-  ApiClient({required SecureStorage secureStorage})
-      : _secureStorage = secureStorage {
+  ApiClient({
+    required SecureStorage secureStorage,
+    required ResponseCache responseCache,
+  }) : _secureStorage = secureStorage {
     _dio = Dio(
       BaseOptions(
         baseUrl: _apiBaseUrl,
@@ -49,7 +55,9 @@ class ApiClient {
         headers: {'Content-Type': 'application/json'},
       ),
     );
-    _dio.interceptors.add(_authInterceptor());
+    _dio.interceptors
+      ..add(_authInterceptor())
+      ..add(responseCache.interceptor);
   }
 
   late final Dio _dio;

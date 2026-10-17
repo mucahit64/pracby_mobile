@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/storage/hive_storage.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
@@ -12,6 +13,7 @@ import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/map_dialogs.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/lesson_map_node.dart';
+import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
 import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
@@ -597,6 +599,37 @@ class _CourseRoadmapSection extends ConsumerWidget {
     );
   }
 
+  /// Online only when nothing is queued before it: the server checks that
+  /// the lesson before the chest is done, and that lesson may still be in
+  /// the offline queue. Otherwise the chest is opened locally and queued
+  /// (docs 7.5.1); the map shows it opened from the queue.
+  Future<void> _claimAsMember(
+    WidgetRef ref,
+    StepModel step,
+    int amount,
+    String courseId,
+  ) async {
+    final user = ref.read(authStateProvider).valueOrNull;
+    if (user == null) return;
+    final queue = ref.read(offlineQueueProvider);
+    final auth = ref.read(authStateProvider.notifier);
+    // Store-item chests only change the inventory, not the acorn balance.
+    final acornReward = step.rewardType == 'store_item' ? 0 : amount;
+    try {
+      if (await queue.flush(user.id)) {
+        await ref.read(quizRepositoryProvider).claimReward(stepId: step.id);
+        auth.setBalances(acorns: user.acorns + acornReward);
+        ref.invalidate(courseFullProvider(courseId));
+        return;
+      }
+    } on ApiException catch (e) {
+      // Rejected by the server: silently ignored, like the web client.
+      if (!e.isNetworkError) return;
+    }
+    await queue.enqueueClaim(userId: user.id, stepId: step.id);
+    auth.setBalances(acorns: user.acorns + acornReward);
+  }
+
   /// Locked lessons / boss and claimed chests are disabled (web).
   bool _isTappable(MapNode node) => switch (node.type) {
     MapNodeType.chest => node.status == MapNodeStatus.active,
@@ -622,18 +655,7 @@ class _CourseRoadmapSection extends ConsumerWidget {
         ref.read(guestProvider.notifier).claimReward(step.id, amount);
         return;
       }
-      try {
-        await ref.read(quizRepositoryProvider).claimReward(stepId: step.id);
-        final acorns = ref.read(authStateProvider).valueOrNull?.acorns;
-        if (acorns != null) {
-          ref
-              .read(authStateProvider.notifier)
-              .setBalances(acorns: acorns + amount);
-        }
-        ref.invalidate(courseFullProvider(courseId));
-      } catch (_) {
-        // Silently ignored, like the web client.
-      }
+      await _claimAsMember(ref, step, amount, courseId);
       return;
     }
 

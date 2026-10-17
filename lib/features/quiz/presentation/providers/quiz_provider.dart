@@ -8,10 +8,10 @@ import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
+import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/quiz/data/models/question_model.dart';
 import 'package:pracby_mobile/features/quiz/data/models/quiz_answer.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
-import 'package:pracby_mobile/features/quiz/domain/offline_quiz_buffer.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
 
@@ -203,7 +203,8 @@ class QuizController extends StateNotifier<QuizState> {
   final List<QuizAnswer> _localAnswers = [];
 
   QuizRepository get _quizRepo => _ref.read(quizRepositoryProvider);
-  OfflineQuizBuffer get _offline => _ref.read(offlineQuizBufferProvider);
+  OfflineQueue get _offline => _ref.read(offlineQueueProvider);
+  String? get _userId => _ref.read(authStateProvider).valueOrNull?.id;
   GuestNotifier get _guest => _ref.read(guestProvider.notifier);
 
   /// Guest start: `guest-start` and local energy (docs 7.1, 10.7).
@@ -246,7 +247,7 @@ class QuizController extends StateNotifier<QuizState> {
     if (_isGuest) return _startGuest();
 
     // Sessions that failed to submit in a previous visit (web: onMounted).
-    unawaited(_offline.syncPendingSessions());
+    unawaited(_offline.sync(userId: _userId));
 
     // Profile (energy) and effects are fetched alongside, like the web.
     // They never throw, so a failing start is reported on its own.
@@ -412,15 +413,30 @@ class QuizController extends StateNotifier<QuizState> {
       );
       unawaited(_ref.read(authStateProvider.notifier).refreshUser());
     } catch (_) {
-      // Network failure — queue it and send when back online. Until then
-      // the header shows the energy left after this quiz.
-      await _offline.savePending(
+      // Network failure — queue it and send when back online (docs 7.5.1).
+      // Until then the result, balances and lesson map are shown locally:
+      // +1 acorn per correct answer, like the server will give.
+      final acorns = skipRewards ? 0 : state.correctCount;
+      await _offline.enqueueFinish(
+        userId: _userId,
         sessionId: sessionId,
         answers: answers,
         skipRewards: skipRewards,
+        topicId: params.topicId,
+        stepId: params.stepId,
+        correctCount: state.correctCount,
+        totalQuestions: state.questions.length,
       );
-      _ref.read(authStateProvider.notifier).setBalances(energy: state.energy);
-      state = state.copyWith(pendingSync: true, finished: true);
+      final user = _ref.read(authStateProvider).valueOrNull;
+      _ref.read(authStateProvider.notifier).setBalances(
+        energy: state.energy,
+        acorns: user == null ? null : user.acorns + acorns,
+      );
+      state = state.copyWith(
+        acornEarned: acorns,
+        pendingSync: true,
+        finished: true,
+      );
     }
   }
 
@@ -476,15 +492,36 @@ class QuizController extends StateNotifier<QuizState> {
       purchaseError: () => null,
     );
     if (_isGuest) return _buyEnergyAsGuest(pkg);
+    final auth = _ref.read(authStateProvider.notifier);
+    final userId = _userId;
     try {
-      final result = await _ref
-          .read(storeRepositoryProvider)
-          .purchase(itemId: pkg.id);
-      final energy = (result['energy'] as num?)?.toInt() ?? state.energy;
-      final balance = (result['balance'] as num).toInt();
-      _ref
-          .read(authStateProvider.notifier)
-          .setBalances(energy: energy, acorns: balance);
+      // Online only when nothing is queued before it, to keep the server's
+      // order of events (docs 7.5.1); otherwise it is bought offline.
+      var online = userId != null && await _offline.flush(userId);
+      if (online) {
+        try {
+          final result = await _ref
+              .read(storeRepositoryProvider)
+              .purchase(itemId: pkg.id);
+          auth.setBalances(
+            energy: (result['energy'] as num?)?.toInt() ?? state.energy,
+            acorns: (result['balance'] as num).toInt(),
+          );
+        } on ApiException catch (e) {
+          if (!e.isNetworkError) rethrow;
+          online = false;
+        }
+      }
+      if (!online && !await auth.buyEnergyOffline(pkg)) {
+        state = state.copyWith(
+          purchaseError: () => 'Yetersiz palamut.',
+          purchasingId: () => null,
+        );
+        return;
+      }
+      final user = _ref.read(authStateProvider).valueOrNull;
+      final energy = user?.energy ?? state.energy;
+      final balance = user?.acorns ?? state.acornBalanceForDialog;
       state = state.copyWith(
         energy: energy,
         acornBalanceForDialog: balance,
@@ -551,6 +588,8 @@ class QuizController extends StateNotifier<QuizState> {
     final repo = _quizRepo;
     final offline = _offline;
     final auth = _ref.read(authStateProvider.notifier);
+    final userId = _userId;
+    final topicId = params.topicId;
     try {
       await repo.finishBulk(
         sessionId: sessionId,
@@ -561,10 +600,12 @@ class QuizController extends StateNotifier<QuizState> {
     } catch (_) {
       // Offline — queue it so the energy is still deducted later, and show
       // the spent energy meanwhile.
-      await offline.savePending(
+      await offline.enqueueFinish(
+        userId: userId,
         sessionId: sessionId,
         answers: answers,
         skipRewards: true,
+        topicId: topicId,
       );
       if (energy != null) auth.setBalances(energy: energy);
     }
