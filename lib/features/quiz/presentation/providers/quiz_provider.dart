@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/core/api/api_client.dart';
 import 'package:pracby_mobile/core/api/api_exception.dart';
+import 'package:pracby_mobile/core/utils/image_prefetch.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -209,6 +211,7 @@ class QuizController extends StateNotifier<QuizState> {
     _guest.refreshEnergy();
     try {
       final questions = await _quizRepo.guestStart(params);
+      if (!await _prefetchImages(questions)) return;
       state = state.copyWith(
         loading: false,
         questions: questions,
@@ -219,6 +222,24 @@ class QuizController extends StateNotifier<QuizState> {
     } catch (_) {
       state = state.copyWith(loading: false, error: () => 'Quiz başlatılamadı');
     }
+  }
+
+  /// Downloads every question image before the quiz starts, so a quiz can
+  /// be finished without a connection. On failure the quiz doesn't start.
+  Future<bool> _prefetchImages(List<QuestionModel> questions) async {
+    final urls = [
+      for (final q in questions)
+        if (q.imageUrl != null && q.imageUrl!.isNotEmpty)
+          questionImageUrl(q.imageUrl!),
+    ];
+    if (urls.isEmpty || await ImagePrefetch.prefetch(urls)) return true;
+    if (mounted) {
+      state = state.copyWith(
+        loading: false,
+        error: () => 'Sorular yüklenemedi. İnternet bağlantını kontrol et.',
+      );
+    }
+    return false;
   }
 
   Future<void> _start() async {
@@ -241,10 +262,16 @@ class QuizController extends StateNotifier<QuizState> {
 
     try {
       final started = await _quizRepo.start(params);
+      _sessionId = started.sessionId;
+      if (!await _prefetchImages(started.questions)) {
+        // Close the session we can't play; nothing was answered.
+        unawaited(_closeSession(started.sessionId, const []));
+        _sessionId = null;
+        return;
+      }
       final user = await userFuture;
       final effects = await effectsFuture;
 
-      _sessionId = started.sessionId;
       state = state.copyWith(
         loading: false,
         questions: started.questions,
@@ -385,12 +412,14 @@ class QuizController extends StateNotifier<QuizState> {
       );
       unawaited(_ref.read(authStateProvider.notifier).refreshUser());
     } catch (_) {
-      // Network failure — queue it and send when back online.
+      // Network failure — queue it and send when back online. Until then
+      // the header shows the energy left after this quiz.
       await _offline.savePending(
         sessionId: sessionId,
         answers: answers,
         skipRewards: skipRewards,
       );
+      _ref.read(authStateProvider.notifier).setBalances(energy: state.energy);
       state = state.copyWith(pendingSync: true, finished: true);
     }
   }
@@ -498,17 +527,47 @@ class QuizController extends StateNotifier<QuizState> {
   }
 
   /// Leaves without rewards: the session is closed with no answers.
+  /// Leaves without rewards. The answers given so far are still sent with
+  /// `skip_rewards: true`: the server deducts energy only for wrong answers
+  /// it receives, so sending none let users dodge the cost by quitting.
+  /// A guest's energy was already spent locally (docs 10.7).
   void exit() {
-    _localAnswers.clear();
     final sessionId = _sessionId;
-    // A guest leaving saves nothing (docs 10.7).
+    final answers = List<QuizAnswer>.of(_localAnswers);
+    _localAnswers.clear();
     if (sessionId != null && !_isGuest) {
-      _quizRepo
-          .finishBulk(sessionId: sessionId, answers: [], skipRewards: true)
-          .then((_) => _ref.read(authStateProvider.notifier).refreshUser())
-          .catchError((Object _) {});
+      unawaited(_closeSession(sessionId, answers, energy: state.energy));
     }
     state = state.copyWith(dialog: QuizDialog.none, exitRequested: true);
+  }
+
+  Future<void> _closeSession(
+    String sessionId,
+    List<QuizAnswer> answers, {
+    int? energy,
+  }) async {
+    // Read everything up front: this controller is disposed once the quiz
+    // screen closes, and its Ref can't be used after that.
+    final repo = _quizRepo;
+    final offline = _offline;
+    final auth = _ref.read(authStateProvider.notifier);
+    try {
+      await repo.finishBulk(
+        sessionId: sessionId,
+        answers: answers,
+        skipRewards: true,
+      );
+      await auth.refreshUser();
+    } catch (_) {
+      // Offline — queue it so the energy is still deducted later, and show
+      // the spent energy meanwhile.
+      await offline.savePending(
+        sessionId: sessionId,
+        answers: answers,
+        skipRewards: true,
+      );
+      if (energy != null) auth.setBalances(energy: energy);
+    }
   }
 
   /// ✕ button: leave at once if nothing was answered, otherwise warn.

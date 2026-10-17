@@ -38,7 +38,11 @@ class QuizScreen extends ConsumerWidget {
     if (state.loading) {
       body = const _Loading();
     } else if (state.error != null) {
-      body = _Error(message: state.error!, onBack: () => _leave(context, ref));
+      body = _Error(
+        message: state.error!,
+        onRetry: controller.restart,
+        onBack: () => _leave(context, ref),
+      );
     } else if (state.finished) {
       body = QuizResultScreen(
         state: state,
@@ -132,9 +136,16 @@ class _Loading extends StatelessWidget {
 }
 
 class _Error extends StatelessWidget {
-  const _Error({required this.message, required this.onBack});
+  const _Error({
+    required this.message,
+    required this.onRetry,
+    required this.onBack,
+  });
 
   final String message;
+
+  /// Starts the quiz again, e.g. once the connection is back.
+  final VoidCallback onRetry;
   final VoidCallback onBack;
 
   @override
@@ -154,6 +165,18 @@ class _Error extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: onRetry,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 46),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+              ),
+              child: const Text(
+                'Tekrar Dene',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            const SizedBox(height: 10),
             ElevatedButton(
               onPressed: onBack,
               style: ElevatedButton.styleFrom(
@@ -434,7 +457,7 @@ class _QuestionImage extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: CachedNetworkImage(
             // Served by the web server, not the API (docs 8.3).
-            imageUrl: '$webBaseUrl/$path',
+            imageUrl: questionImageUrl(path),
             fit: BoxFit.contain,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,

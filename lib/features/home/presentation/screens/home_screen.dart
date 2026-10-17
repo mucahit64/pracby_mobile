@@ -495,7 +495,9 @@ class _CourseRoadmapSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final courseFullAsync = ref.watch(courseFullProvider(course.id));
 
+    // Offline, a failed refresh keeps showing the last loaded map.
     return courseFullAsync.when(
+      skipError: true,
       loading: () => const SizedBox(
         height: 80,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),

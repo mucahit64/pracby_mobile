@@ -456,6 +456,16 @@ Body: { answers: AnswerInput[]; skip_rewards?: boolean }      // skip_rewards de
 ```
 - Web istemcisi offline kuyruğu `pb_pending_quiz` anahtarında `{ sessionId, answers, savedAt, skipRewards }[]` olarak tutar. Mobilde karşılığı `features/quiz/domain/offline_quiz_buffer.dart` dosyasıdır.
 
+### 7.5.1 İnternetsiz Çalışma
+Başlamış bir test internet kesilse de sonuna kadar çözülebilmelidir. Bu yüzden yeni bir test **ancak her şey yüklendikten sonra** başlar.
+
+- **Başlarken:** Sorular (`/quiz/start` veya `/quiz/guest-start`) ve testteki **tüm soru görselleri** indirilmeden test ekranı açılmaz. Görseller önbelleğe indirilir (`ImagePrefetch`, `cached_network_image` ile aynı önbellek).
+  - Bir görsel bağlantı yüzünden inmezse test başlamaz ve "Sorular yüklenemedi. İnternet bağlantını kontrol et." mesajı ile **Tekrar Dene** butonu gösterilir. Kayıtlı kullanıcının açılmış oturumu cevapsız ve `skip_rewards: true` ile kapatılır.
+  - Sunucuda olmayan görseller (4xx) testi engellemez. O soruda "görsel yüklenemedi" uyarısı çıkar.
+- **Test sırasında:** Hiç ağ isteği yapılmaz. Puanlama `is_correct` ile cihazda yapılır, enerji yerelde düşer.
+- **Bitişte:** Kayıtlı kullanıcının sonucu gönderilemezse kuyruğa yazılır (7.5, 7. madde) ve sonuç ekranında "senkronize edilecek" durumu gösterilir. Yarıda çıkışta oturumu kapatma isteği de kuyruğa yazılır. Misafir sonucu zaten yereldir.
+- **İnternet gerektirenler:** Soru bildirimi ve enerji paketi listesi internet ister. Enerji diyaloğu çevrimdışıyken "Enerji paketleri yüklenemedi. İnternet bağlantını kontrol et." gösterir, kullanıcı reddedip testten çıkabilir.
+
 ### 7.6 Eski Endpointler (Kullanmayın)
 ```
 POST /api/quiz/:sessionId/answer   Body: AnswerInput   → { isCorrect, energy_remaining }

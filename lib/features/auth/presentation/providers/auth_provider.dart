@@ -5,8 +5,9 @@ import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
 
-final authStateProvider =
-    AsyncNotifierProvider<AuthNotifier, UserModel?>(AuthNotifier.new);
+final authStateProvider = AsyncNotifierProvider<AuthNotifier, UserModel?>(
+  AuthNotifier.new,
+);
 
 class AuthNotifier extends AsyncNotifier<UserModel?> {
   @override
@@ -34,8 +35,10 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(authRepositoryProvider);
-      final response =
-          await repo.login(identifier: identifier, password: password);
+      final response = await repo.login(
+        identifier: identifier,
+        password: password,
+      );
       await ref.read(secureStorageProvider).setToken(response.token);
       // Carry guest progress over to the account (docs 10.9).
       await ref.read(guestProvider.notifier).mergeAfterLogin(repo);
@@ -85,9 +88,16 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     );
   }
 
+  /// Refetches `/users/me`. A failed request (e.g. offline) keeps the
+  /// current user instead of turning the session into an error, which the
+  /// router would treat as logged out. A 401 still ends the session through
+  /// `ApiClient.onUnauthorized`.
   Future<void> refreshUser() async {
-    state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).getMe(),
-    );
+    try {
+      final user = await ref.read(authRepositoryProvider).getMe();
+      state = AsyncValue.data(user);
+    } catch (e, st) {
+      if (state.valueOrNull == null) state = AsyncValue.error(e, st);
+    }
   }
 }

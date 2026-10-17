@@ -28,6 +28,9 @@ String get webBaseUrl {
   return 'http://[::1]:3000';
 }
 
+/// Full URL of a question image (`image_url` is relative, docs 8.3).
+String questionImageUrl(String path) => '$webBaseUrl/$path';
+
 final apiClientProvider = Provider<ApiClient>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
   final client = ApiClient(secureStorage: secureStorage);

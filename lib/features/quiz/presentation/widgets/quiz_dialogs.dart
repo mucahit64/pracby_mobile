@@ -144,6 +144,19 @@ class EnergyEmptySheet extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 3),
               ),
             )
+          else if (packages.isEmpty)
+            // The list comes from the API, so it is empty when offline.
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Enerji paketleri yüklenemedi. İnternet bağlantını kontrol et.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.grey400,
+                ),
+              ),
+            )
           else
             for (final pkg in packages) _package(pkg),
           if (error != null)
