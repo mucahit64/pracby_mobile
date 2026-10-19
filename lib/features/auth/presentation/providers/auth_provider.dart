@@ -55,10 +55,13 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     });
   }
 
+  /// [examTypeId] is the exam picked on the register form; a guest's
+  /// chosen exam is used otherwise (docs 3.2).
   Future<void> register({
     required String email,
     required String username,
     required String password,
+    String? examTypeId,
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
@@ -68,7 +71,7 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         email: email,
         username: username,
         password: password,
-        examTypeId: ref.read(guestProvider).examTypeId,
+        examTypeId: examTypeId ?? ref.read(guestProvider).examTypeId,
         guestPayload: guest.registrationPayload(),
       );
       await ref.read(secureStorageProvider).setToken(response.token);
