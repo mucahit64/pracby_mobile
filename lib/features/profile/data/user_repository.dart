@@ -64,21 +64,28 @@ class UserRepository {
     );
   }
 
+  /// `PATCH /api/users/me` (docs 11.5). Only the given fields are sent.
+  /// Field names are camelCase: the API drops unknown (e.g. snake_case) keys
+  /// without an error. [currentPassword] is required with [email] or
+  /// [newPassword].
   Future<void> updateProfile({
     String? username,
-    String? avatarUrl,
-    int? dailyGoalXp,
+    String? email,
     String? currentPassword,
     String? newPassword,
+    String? avatarUrl,
+    int? dailyGoalXp,
   }) async {
     await _apiClient.patch<Map<String, dynamic>>(
       Endpoints.me,
       data: {
         if (username != null) 'username': username,
-        if (avatarUrl != null) 'avatar_url': avatarUrl,
-        if (dailyGoalXp != null) 'daily_goal_xp': dailyGoalXp,
-        if (currentPassword != null) 'current_password': currentPassword,
-        if (newPassword != null) 'new_password': newPassword,
+        if (email != null) 'email': email,
+        if (currentPassword != null) 'currentPassword': currentPassword,
+        if (newPassword != null) 'newPassword': newPassword,
+        if (avatarUrl != null) 'avatarUrl': avatarUrl,
+        // The API takes the goal as a string enum: "10" | "20" | "50" | "100".
+        if (dailyGoalXp != null) 'dailyGoalXp': '$dailyGoalXp',
       },
     );
   }
