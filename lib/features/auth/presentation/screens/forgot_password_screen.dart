@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
+import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
@@ -41,12 +43,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _emailSent = true;
         });
       }
-    } catch (e) {
+    } on ApiException catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(
+              e.isNetworkError ? 'İnternet bağlantısı yok.' : e.message,
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -83,14 +87,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: 12),
         Text(
           'Şifre sıfırlama bağlantısı e-posta adresine gönderildi. '
-          'Lütfen e-postanı kontrol et.',
+          'Bağlantıyı açıp yeni şifreni belirle, sonra buradan giriş yap.',
           style: Theme.of(context).textTheme.bodyLarge,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
         PbButton(
           text: 'Giriş Sayfasına Dön',
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go(Routes.login),
         ),
       ],
     );

@@ -33,8 +33,8 @@ class WelcomeScreen extends StatelessWidget {
               Text(
                 "Pracby'ye Hoş Geldin!",
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  fontWeight: FontWeight.w700,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -97,9 +97,7 @@ class WelcomeScreen extends StatelessWidget {
           child: Icon(icon, color: color, size: 22),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: Text(text, style: const TextStyle(fontSize: 15)),
-        ),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
       ],
     );
   }

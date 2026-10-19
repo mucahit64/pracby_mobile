@@ -55,10 +55,13 @@ class UserRepository {
     );
   }
 
-  Future<void> removeEnrollment(String examTypeId) async {
-    await _apiClient.delete<Map<String, dynamic>>(
+  /// Returns the exam the API made active when [examTypeId] was the
+  /// active one, otherwise null. The last enrollment can't be removed (400).
+  Future<String?> removeEnrollment(String examTypeId) async {
+    final response = await _apiClient.delete<Map<String, dynamic>>(
       '${Endpoints.myEnrollments}/$examTypeId',
     );
+    return response.data?['newActiveExamTypeId'] as String?;
   }
 
   Future<void> updateActiveExam(String examTypeId) async {

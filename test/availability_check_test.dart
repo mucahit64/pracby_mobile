@@ -11,13 +11,10 @@ void main() {
   setUp(() {
     calls = [];
     pending = {};
-    check = AvailabilityCheck(
-      (value) {
-        calls.add(value);
-        return (pending[value] = Completer<bool>()).future;
-      },
-      debounce: const Duration(milliseconds: 20),
-    );
+    check = AvailabilityCheck((value) {
+      calls.add(value);
+      return (pending[value] = Completer<bool>()).future;
+    }, debounce: const Duration(milliseconds: 20));
   });
 
   tearDown(() => check.dispose());

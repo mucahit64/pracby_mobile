@@ -14,7 +14,9 @@ import 'package:pracby_mobile/features/profile/presentation/providers/profile_pr
 
 /// Exam selection, mirroring the web client's `pages/welcome.vue`.
 /// A visitor becomes a guest with the chosen exam and goes straight to the
-/// lesson map (docs 10); a logged-in user adds the exam to their enrollments.
+/// lesson map (docs 10); a logged-in user adds the exam to their enrollments
+/// and continues with it as the active exam. Picking an exam they are
+/// already enrolled in just switches to it.
 class ExamSelectScreen extends ConsumerStatefulWidget {
   const ExamSelectScreen({super.key});
 
@@ -25,6 +27,11 @@ class ExamSelectScreen extends ConsumerStatefulWidget {
 class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
   ExamGroupModel? _selectedGroup;
   bool _saving = false;
+
+  /// Exams a logged-in user is already enrolled in.
+  Set<String> get _enrolledIds => {
+    ...?ref.read(enrollmentsProvider).valueOrNull?.map((e) => e.examTypeId),
+  };
 
   void _selectGroup(ExamGroupModel group) {
     if (!group.isActive) return;
@@ -47,16 +54,27 @@ class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
     }
 
     setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(userRepositoryProvider).addEnrollment(type.id);
-      ref.invalidate(enrollmentsProvider);
+      if (!_enrolledIds.contains(type.id)) {
+        try {
+          await ref.read(userRepositoryProvider).addEnrollment(type.id);
+        } on ApiException catch (e) {
+          // 409: already enrolled (e.g. a stale list); just switch to it.
+          if (e.statusCode != 409) rethrow;
+        }
+        ref.invalidate(enrollmentsProvider);
+      }
+      await ref.read(authStateProvider.notifier).setActiveExam(type.id);
       if (mounted) context.go(Routes.home);
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
-            e.statusCode == 409 ? 'Bu sınava zaten kayıtlısın.' : e.message,
+            e.isNetworkError
+                ? 'Sınav eklemek için internet bağlantısı gerekli.'
+                : e.message,
           ),
         ),
       );
@@ -69,6 +87,8 @@ class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
   Widget build(BuildContext context) {
     final groupsAsync = ref.watch(examGroupsProvider);
     final isLoggedIn = ref.watch(authStateProvider).valueOrNull != null;
+    // Watched so the "Kayıtlı" badges are current.
+    ref.watch(enrollmentsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -184,6 +204,7 @@ class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
             padding: const EdgeInsets.only(bottom: 12),
             child: _OptionCard(
               title: type.name,
+              badge: _enrolledIds.contains(type.id) ? 'KAYITLI' : null,
               onTap: () => _selectExamType(group, type),
             ),
           ),

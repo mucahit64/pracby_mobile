@@ -5,6 +5,10 @@ abstract final class Routes {
   static const String forgotPassword = '/forgot-password';
   static const String resetPassword = '/reset-password';
 
+  /// The web path in the reset email; the same link opens the app once
+  /// Universal Links / App Links are set up.
+  static const String resetPasswordWeb = '/auth/reset-password';
+
   /// Shown to guests after a quiz (web: /auth/register-wall).
   static const String registerWall = '/register-wall';
 
@@ -26,15 +30,14 @@ abstract final class Routes {
     String? stepId,
     String? testId,
     String? sessionType,
-  }) =>
-      Uri(
-        path: '/quiz/$topicId',
-        queryParameters: {
-          if (stepId != null) 'stepId': stepId,
-          if (testId != null) 'testId': testId,
-          if (sessionType != null) 'sessionType': sessionType,
-        },
-      ).toString();
+  }) => Uri(
+    path: '/quiz/$topicId',
+    queryParameters: {
+      if (stepId != null) 'stepId': stepId,
+      if (testId != null) 'testId': testId,
+      if (sessionType != null) 'sessionType': sessionType,
+    },
+  ).toString();
 
   // Other
   static const String notifications = '/notifications';

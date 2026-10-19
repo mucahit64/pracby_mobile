@@ -7,10 +7,10 @@ import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/utils/level_progress.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
-import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
 import 'package:pracby_mobile/features/profile/data/models/streak_day.dart';
 import 'package:pracby_mobile/features/profile/data/models/user_stats.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
+import 'package:pracby_mobile/features/profile/presentation/widgets/enrollment_list.dart';
 import 'package:pracby_mobile/features/profile/presentation/widgets/week_streak_row.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -115,8 +115,7 @@ class ProfileScreen extends ConsumerWidget {
             enrollmentsAsync.when(
               loading: () => const PbLoading(),
               error: (_, __) => const SizedBox.shrink(),
-              data: (enrollments) =>
-                  _buildEnrollmentsSection(context, ref, enrollments),
+              data: (enrollments) => EnrollmentList(enrollments: enrollments),
             ),
             const SizedBox(height: 32),
           ],
@@ -349,92 +348,6 @@ class ProfileScreen extends ConsumerWidget {
     return Opacity(
       opacity: opacity,
       child: Text(iconUrl ?? '🏅', style: const TextStyle(fontSize: 26)),
-    );
-  }
-
-  Widget _buildEnrollmentsSection(
-    BuildContext context,
-    WidgetRef ref,
-    List<EnrollmentModel> enrollments,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Kayıtlı Sınavlar',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            TextButton.icon(
-              onPressed: () => context.push(Routes.examSelect),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Sınav Ekle'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...enrollments.map(
-          (e) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.grey200),
-              color: AppColors.grey50,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                  ),
-                  child: const Icon(
-                    Icons.school_outlined,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        e.examTypeName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        e.examGroupName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.grey500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

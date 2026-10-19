@@ -17,7 +17,6 @@ import 'package:pracby_mobile/features/home/presentation/widgets/lesson_map_node
 import 'package:pracby_mobile/features/home/presentation/widgets/status_sheets.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
-import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
 
@@ -32,7 +31,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _moduleKey = 'pb_selectedModuleId';
   static const _courseKey = 'pb_selectedCourseId';
 
-  String? _selectedExamTypeId;
   String? _selectedModuleId;
   String? _selectedCourseId;
 
@@ -46,13 +44,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// Updates the map selection and persists it (null clears it).
-  void _select({
-    required String? moduleId,
-    required String? courseId,
-    String? Function()? examTypeId,
-  }) {
+  void _select({required String? moduleId, required String? courseId}) {
     setState(() {
-      if (examTypeId != null) _selectedExamTypeId = examTypeId();
       _selectedModuleId = moduleId;
       _selectedCourseId = courseId;
     });
@@ -73,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final prevId = prev?.valueOrNull?.id;
       final nextId = next.valueOrNull?.id;
       if (prevId != nextId) {
-        _select(moduleId: null, courseId: null, examTypeId: () => null);
+        _select(moduleId: null, courseId: null);
       }
     });
 
@@ -83,12 +76,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isGuest = user == null && guestExamId != null;
     final enrollmentsAsync = ref.watch(enrollmentsProvider);
 
-    final firstEnrollmentId = enrollmentsAsync.valueOrNull?.isNotEmpty ?? false
-        ? enrollmentsAsync.valueOrNull!.first.examTypeId
-        : null;
+    final enrolled = enrollmentsAsync.valueOrNull ?? const [];
+    // The user's active exam, unless it is no longer enrolled.
     final activeExamId = isGuest
         ? guestExamId
-        : _selectedExamTypeId ?? user?.activeExamId ?? firstEnrollmentId;
+        : enrolled.isEmpty ||
+              enrolled.any((e) => e.examTypeId == user?.activeExamId)
+        ? user?.activeExamId
+        : enrolled.first.examTypeId;
 
     // Watch modules
     final modulesAsync = activeExamId != null
@@ -154,6 +149,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   : map(enrollments: enrollments),
             ),
     );
+  }
+
+  /// Changing the exam clears the module / course (web `switchExam`).
+  Future<void> _switchExam(String examTypeId) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final previous = (module: _selectedModuleId, course: _selectedCourseId);
+    _select(moduleId: null, courseId: null);
+    try {
+      await ref.read(authStateProvider.notifier).setActiveExam(examTypeId);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _select(moduleId: previous.module, courseId: previous.course);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.isNetworkError
+                ? 'Sınav değiştirmek için internet bağlantısı gerekli.'
+                : e.message,
+          ),
+        ),
+      );
+    }
   }
 
   PreferredSizeWidget _buildTopBar(BuildContext context, UserModel? user) {
@@ -230,15 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           final e = enrollments[index];
           final isSelected = e.examTypeId == activeId;
           return GestureDetector(
-            onTap: () {
-              // Changing the exam clears the module / course (web).
-              _select(
-                moduleId: null,
-                courseId: null,
-                examTypeId: () => e.examTypeId,
-              );
-              ref.read(userRepositoryProvider).updateActiveExam(e.examTypeId);
-            },
+            onTap: () => _switchExam(e.examTypeId),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

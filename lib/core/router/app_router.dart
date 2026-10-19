@@ -60,13 +60,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       };
       const onboardingRoutes = {Routes.splash, Routes.welcome};
       // What a guest may open (docs 10.2, web middleware/auth.global.ts).
-      final guestAllowed = path == Routes.home ||
+      final guestAllowed =
+          path == Routes.home ||
           path == Routes.store ||
           path == Routes.leaderboard ||
           path == Routes.registerWall ||
           path.startsWith('/quiz/');
 
       if (path == Routes.splash) return null;
+
+      // The reset link works logged in or out: it carries its own token.
+      if (path == Routes.resetPasswordWeb) {
+        return Uri(
+          path: Routes.resetPassword,
+          queryParameters: state.uri.queryParameters,
+        ).toString();
+      }
+      if (path == Routes.resetPassword) return null;
 
       if (isLoggedIn) {
         if (authRoutes.contains(path) ||
@@ -117,7 +127,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.resetPassword,
-        builder: (context, state) => const ResetPasswordScreen(),
+        builder: (context, state) =>
+            ResetPasswordScreen(token: state.uri.queryParameters['token']),
+      ),
+      // Redirected to [Routes.resetPassword] above; declared so it matches.
+      GoRoute(
+        path: Routes.resetPasswordWeb,
+        redirect: (context, state) => Uri(
+          path: Routes.resetPassword,
+          queryParameters: state.uri.queryParameters,
+        ).toString(),
       ),
       GoRoute(
         path: Routes.registerWall,
@@ -173,9 +192,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.courseDetail,
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => CourseDetailScreen(
-          courseId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            CourseDetailScreen(courseId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: Routes.friends,
@@ -245,9 +263,7 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
         // Guests get the register screen on top of the current tab, so its
         // ✕ returns to where they were (web: PROFİL → /auth/register).
         final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
-        isLoggedIn
-            ? context.go(Routes.profile)
-            : context.push(Routes.register);
+        isLoggedIn ? context.go(Routes.profile) : context.push(Routes.register);
     }
   }
 }

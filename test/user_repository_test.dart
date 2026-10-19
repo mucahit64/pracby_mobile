@@ -17,6 +17,17 @@ class _RecordingApiClient implements ApiClient {
   }
 
   @override
+  Future<Response<T>> delete<T>(String path) async {
+    this.path = path;
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: deleteResponse as T?,
+    );
+  }
+
+  Object? deleteResponse;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -52,5 +63,14 @@ void main() {
   test('sends only the changed fields', () async {
     await repo.updateProfile(username: 'yeniad');
     expect(api.body, {'username': 'yeniad'});
+  });
+
+  test('removing the active exam returns the new active exam', () async {
+    api.deleteResponse = {'newActiveExamTypeId': 'exam-2'};
+    expect(await repo.removeEnrollment('exam-1'), 'exam-2');
+    expect(api.path, '${Endpoints.myEnrollments}/exam-1');
+
+    api.deleteResponse = {'newActiveExamTypeId': null};
+    expect(await repo.removeEnrollment('exam-3'), isNull);
   });
 }

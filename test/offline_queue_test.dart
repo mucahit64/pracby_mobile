@@ -34,8 +34,7 @@ class _FakeQuizRepository implements QuizRepository {
     required String sessionId,
     required List<QuizAnswer> answers,
     bool skipRewards = false,
-  }) =>
-      api.call('finish:$sessionId', QuizFinishResult.fromJson(const {}));
+  }) => api.call('finish:$sessionId', QuizFinishResult.fromJson(const {}));
 
   @override
   Future<Map<String, dynamic>> claimReward({required String stepId}) =>
@@ -47,8 +46,7 @@ class _FakeQuizRepository implements QuizRepository {
     required String reason,
     String? description,
     String? guestId,
-  }) =>
-      api.call('report:$questionId', null);
+  }) => api.call('report:$questionId', null);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -62,8 +60,7 @@ class _FakeStoreRepository implements StoreRepository {
   Future<Map<String, dynamic>> purchase({
     required String itemId,
     int quantity = 1,
-  }) =>
-      api.call('purchase:$itemId', <String, dynamic>{});
+  }) => api.call('purchase:$itemId', <String, dynamic>{});
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -145,8 +142,10 @@ void main() {
     await queue.enqueuePurchase(userId: 'u1', itemId: 'energy5');
     await queue.enqueueClaim(userId: 'u1', stepId: 'chest1');
 
-    api.failWith =
-        const ApiException(statusCode: 400, message: 'Insufficient acorn');
+    api.failWith = const ApiException(
+      statusCode: 400,
+      message: 'Insufficient acorn',
+    );
     await queue.sync(userId: 'u1');
     // Both were rejected (the fake fails every call) and dropped.
     expect(queue.isEmpty, isTrue);

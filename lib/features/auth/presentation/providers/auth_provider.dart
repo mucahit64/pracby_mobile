@@ -8,6 +8,7 @@ import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
+import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 
 final authStateProvider = AsyncNotifierProvider<AuthNotifier, UserModel?>(
@@ -124,6 +125,29 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         .read(offlineQueueProvider)
         .enqueuePurchase(userId: user.id, itemId: item.id);
     return true;
+  }
+
+  /// Switches the active exam (web `switchExam`). Applied right away and
+  /// undone (rethrowing) when the request fails, e.g. offline.
+  Future<void> setActiveExam(String examTypeId) async {
+    final previous = state.valueOrNull?.activeExamId;
+    if (state.valueOrNull == null || previous == examTypeId) return;
+    activeExamChanged(examTypeId);
+    try {
+      await ref.read(userRepositoryProvider).updateActiveExam(examTypeId);
+    } catch (_) {
+      if (previous != null) activeExamChanged(previous);
+      rethrow;
+    }
+  }
+
+  /// Applies an active exam the server already changed (e.g. after
+  /// removing the active enrollment).
+  void activeExamChanged(String examTypeId) {
+    final user = state.valueOrNull;
+    if (user == null) return;
+    state = AsyncValue.data(user.copyWith(activeExamId: examTypeId));
+    ref.read(responseCacheProvider).patchUser(activeExamId: examTypeId);
   }
 
   /// Refetches `/users/me`. A failed request (e.g. offline) keeps the

@@ -64,13 +64,14 @@ class ResponseCache {
 
   /// Applies local balance changes to the cached `/users/me`, so they survive
   /// an app restart while offline.
-  void patchUser({int? energy, int? acorns}) {
+  void patchUser({int? energy, int? acorns, String? activeExamId}) {
     final box = _storage.responseCacheBox;
     final raw = box.get(Endpoints.me);
     if (raw == null) return;
     final user = jsonDecode(raw) as Map<String, dynamic>;
     if (energy != null) user['energy'] = energy;
     if (acorns != null) user['acorn_balance'] = acorns;
+    if (activeExamId != null) user['active_exam_type_id'] = activeExamId;
     box.put(Endpoints.me, jsonEncode(user));
   }
 
