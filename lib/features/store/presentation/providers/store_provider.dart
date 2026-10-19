@@ -28,11 +28,18 @@ final activeEffectsProvider = FutureProvider<List<ActiveEffect>>((ref) async {
   return ref.watch(storeRepositoryProvider).getActiveEffects();
 });
 
-/// An unlimited-energy effect is running (members only).
-final unlimitedEnergyProvider = Provider<bool>((ref) {
-  final effects = ref.watch(activeEffectsProvider).valueOrNull ?? const [];
-  final now = DateTime.now();
+/// Whether an unlimited-energy effect is running at [now] (default: now).
+/// The API lets such a user start a quiz with 0 energy (docs 12).
+bool hasUnlimitedEnergy(List<ActiveEffect> effects, {DateTime? now}) {
+  final at = now ?? DateTime.now();
   return effects.any(
-    (e) => e.itemType == 'unlimited_energy' && e.expiresAt.isAfter(now),
+    (e) => e.itemType == 'unlimited_energy' && e.expiresAt.isAfter(at),
   );
-});
+}
+
+/// An unlimited-energy effect is running (members only).
+final unlimitedEnergyProvider = Provider<bool>(
+  (ref) => hasUnlimitedEnergy(
+    ref.watch(activeEffectsProvider).valueOrNull ?? const [],
+  ),
+);

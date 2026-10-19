@@ -19,6 +19,7 @@ import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
+import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -669,7 +670,10 @@ class _CourseRoadmapSection extends ConsumerWidget {
 
     final user = ref.read(authStateProvider).valueOrNull;
     final energy = user?.energy ?? ref.read(guestProvider).energyCount;
-    if (energy <= 0) {
+    final unlimited = hasUnlimitedEnergy(
+      ref.read(activeEffectsProvider).valueOrNull ?? const [],
+    );
+    if (energy <= 0 && !unlimited) {
       final goStore = await showEnergyOutDialog(context);
       if (goStore && context.mounted) context.go(Routes.store);
       return;

@@ -14,6 +14,7 @@ import 'package:pracby_mobile/features/quiz/data/models/quiz_answer.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
+import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
 
 /// Quiz flow for a logged-in user, mirroring the web client's
 /// `pages/quiz/[id].vue` (MOBILE_APP_DOCS.md 7.5).
@@ -277,11 +278,7 @@ class QuizController extends StateNotifier<QuizState> {
         loading: false,
         questions: started.questions,
         energy: user?.energy ?? 25,
-        unlimitedEnergy: effects.any(
-          (e) =>
-              e.itemType == 'unlimited_energy' &&
-              e.expiresAt.isAfter(DateTime.now()),
-        ),
+        unlimitedEnergy: hasUnlimitedEnergy(effects),
       );
     } on ApiException catch (e) {
       if (e.statusCode == 403) {
@@ -428,10 +425,12 @@ class QuizController extends StateNotifier<QuizState> {
         totalQuestions: state.questions.length,
       );
       final user = _ref.read(authStateProvider).valueOrNull;
-      _ref.read(authStateProvider.notifier).setBalances(
-        energy: state.energy,
-        acorns: user == null ? null : user.acorns + acorns,
-      );
+      _ref
+          .read(authStateProvider.notifier)
+          .setBalances(
+            energy: state.energy,
+            acorns: user == null ? null : user.acorns + acorns,
+          );
       state = state.copyWith(
         acornEarned: acorns,
         pendingSync: true,

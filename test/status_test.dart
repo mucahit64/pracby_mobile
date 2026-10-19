@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pracby_mobile/core/utils/level_progress.dart';
 import 'package:pracby_mobile/core/widgets/countdown.dart';
 import 'package:pracby_mobile/features/profile/data/models/streak_day.dart';
+import 'package:pracby_mobile/features/store/data/models/store_item.dart';
+import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
 
 void main() {
   group('LevelProgress (web: total_xp / 500 + 1)', () {
@@ -63,5 +65,29 @@ void main() {
 
     await tester.pump(const Duration(seconds: 3));
     expect(done, 1);
+  });
+
+  test('unlimited energy counts only while the effect runs', () {
+    final now = DateTime(2026, 10, 19, 12);
+    final effects = [
+      ActiveEffect(
+        itemType: 'unlimited_energy',
+        expiresAt: now.add(const Duration(minutes: 5)),
+      ),
+    ];
+    expect(hasUnlimitedEnergy(effects, now: now), isTrue);
+    expect(
+      hasUnlimitedEnergy(effects, now: now.add(const Duration(minutes: 6))),
+      isFalse,
+    );
+    expect(
+      hasUnlimitedEnergy([
+        ActiveEffect(
+          itemType: 'xp_boost',
+          expiresAt: now.add(const Duration(hours: 1)),
+        ),
+      ], now: now),
+      isFalse,
+    );
   });
 }
