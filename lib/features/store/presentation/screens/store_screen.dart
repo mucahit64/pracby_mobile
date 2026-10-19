@@ -11,6 +11,7 @@ import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
 import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
+import 'package:pracby_mobile/features/store/presentation/widgets/inventory_section.dart';
 
 class StoreScreen extends ConsumerWidget {
   const StoreScreen({super.key});
@@ -56,41 +57,12 @@ class StoreScreen extends ConsumerWidget {
           return CustomScrollView(
             slivers: [
               if (isGuest) SliverToBoxAdapter(child: _GuestBanner(acorns)),
-              if (effects.isNotEmpty) ...[
+              if (effects.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Aktif Efektler',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: effects.map((effect) {
-                            final remaining = effect.expiresAt
-                                .difference(DateTime.now());
-                            return Chip(
-                              avatar: const Icon(Icons.auto_awesome,
-                                  size: 16, color: AppColors.accent),
-                              label: Text(
-                                '${effect.itemType}: ${remaining.inHours}sa ${remaining.inMinutes.remainder(60)}dk',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              backgroundColor: AppColors.accent.withValues(alpha: 0.1),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: ActiveEffectsSection(effects: effects),
                 ),
-              ],
+              if (!isGuest)
+                const SliverToBoxAdapter(child: InventorySection()),
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverGrid(
@@ -171,8 +143,13 @@ class StoreScreen extends ConsumerWidget {
         }
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Satın alma başarılı!'),
+            SnackBar(
+              // Timed items go to the inventory and must be activated there.
+              content: Text(
+                item.durationHours != null
+                    ? 'Satın alındı! Envanterinden kullanabilirsin.'
+                    : 'Satın alma başarılı!',
+              ),
               backgroundColor: AppColors.success,
             ),
           );
@@ -209,7 +186,8 @@ class StoreScreen extends ConsumerWidget {
     }
     ref
       ..invalidate(storeItemsProvider)
-      ..invalidate(activeEffectsProvider);
+      ..invalidate(activeEffectsProvider)
+      ..invalidate(storeInventoryProvider);
     await ref.read(authStateProvider.notifier).refreshUser();
     return true;
   }

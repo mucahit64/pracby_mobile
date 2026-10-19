@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_client.dart';
 import 'package:pracby_mobile/core/api/endpoints.dart';
+import 'package:pracby_mobile/features/store/data/models/inventory_item.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 
 final storeRepositoryProvider = Provider<StoreRepository>((ref) {
@@ -20,11 +21,11 @@ class StoreRepository {
         .toList();
   }
 
-  Future<List<StoreItem>> getInventory() async {
+  Future<List<InventoryItem>> getInventory() async {
     final response =
         await _apiClient.get<List<dynamic>>(Endpoints.storeInventory);
     return (response.data ?? [])
-        .map((e) => StoreItem.fromJson(e as Map<String, dynamic>))
+        .map((e) => InventoryItem.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
@@ -47,11 +48,18 @@ class StoreRepository {
     return response.data!;
   }
 
-  Future<Map<String, dynamic>> activate({required String itemId}) async {
+  /// Starts a timed effect from the inventory (docs 12.5). [itemId] is the
+  /// `store_items.id`. An active effect of the same type is replaced: its
+  /// remaining time is lost, not extended.
+  Future<ActiveEffect> activate({required String itemId}) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       Endpoints.storeActivate(itemId),
     );
-    return response.data!;
+    final data = response.data!;
+    return ActiveEffect(
+      itemType: data['itemType'] as String,
+      expiresAt: DateTime.parse(data['expiresAt'] as String),
+    );
   }
 
   Future<List<AcornPackage>> getAcornPackages() async {
