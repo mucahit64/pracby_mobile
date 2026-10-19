@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/utils/level_progress.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
+import 'package:pracby_mobile/features/profile/data/models/streak_day.dart';
 import 'package:pracby_mobile/features/profile/data/models/user_stats.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
+import 'package:pracby_mobile/features/profile/presentation/widgets/week_streak_row.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -19,6 +22,7 @@ class ProfileScreen extends ConsumerWidget {
     final statsAsync = ref.watch(userStatsProvider);
     final achievementsAsync = ref.watch(achievementsProvider);
     final enrollmentsAsync = ref.watch(enrollmentsProvider);
+    final streakDays = ref.watch(streakHistoryProvider).valueOrNull ?? const [];
 
     if (user == null) return const PbLoading();
 
@@ -63,19 +67,23 @@ class ProfileScreen extends ConsumerWidget {
                   Text(
                     user.username,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     user.email,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.grey500,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: AppColors.grey500),
                   ),
                 ],
               ),
             ),
+            if (statsAsync.valueOrNull case final stats?) ...[
+              const SizedBox(height: 20),
+              _LevelBar(LevelProgress.fromTotalXp(stats.totalXp)),
+            ],
             const SizedBox(height: 24),
 
             // Stats grid
@@ -90,7 +98,7 @@ class ProfileScreen extends ConsumerWidget {
             statsAsync.when(
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
-              data: (stats) => _buildStreakSection(context, stats),
+              data: (stats) => _buildStreakSection(context, stats, streakDays),
             ),
             const SizedBox(height: 24),
 
@@ -123,10 +131,9 @@ class ProfileScreen extends ConsumerWidget {
       children: [
         Text(
           'İstatistikler',
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
         Row(
@@ -176,7 +183,11 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStreakSection(BuildContext context, UserStats stats) {
+  Widget _buildStreakSection(
+    BuildContext context,
+    UserStats stats,
+    List<StreakDay> days,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -189,33 +200,51 @@ class ProfileScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('🔥', style: TextStyle(fontSize: 40)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${stats.currentStreak} günlük seri',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.error,
-                  ),
+          Row(
+            children: [
+              const Text('🔥', style: TextStyle(fontSize: 40)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${stats.currentStreak} günlük seri',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.error,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'En yüksek: ${stats.maxStreak} gün',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.grey500,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'En yüksek: ${stats.maxStreak} gün',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.grey500,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          if (days.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Text(
+              'Bu Haftaki Seri',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppColors.grey600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            WeekStreakRow(days: days),
+          ],
         ],
       ),
     );
@@ -234,17 +263,13 @@ class ProfileScreen extends ConsumerWidget {
           children: [
             Text(
               'Başarımlar',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
               '${achievements.length} kazanıldı',
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.grey500,
-              ),
+              style: const TextStyle(fontSize: 13, color: AppColors.grey500),
             ),
           ],
         ),
@@ -323,10 +348,7 @@ class ProfileScreen extends ConsumerWidget {
     // Treat as emoji or short text
     return Opacity(
       opacity: opacity,
-      child: Text(
-        iconUrl ?? '🏅',
-        style: const TextStyle(fontSize: 26),
-      ),
+      child: Text(iconUrl ?? '🏅', style: const TextStyle(fontSize: 26)),
     );
   }
 
@@ -343,10 +365,9 @@ class ProfileScreen extends ConsumerWidget {
           children: [
             Text(
               'Kayıtlı Sınavlar',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             TextButton.icon(
               onPressed: () => context.push(Routes.examSelect),
@@ -354,8 +375,10 @@ class ProfileScreen extends ConsumerWidget {
               label: const Text('Sınav Ekle'),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.primary,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
               ),
             ),
           ],
@@ -414,7 +437,6 @@ class ProfileScreen extends ConsumerWidget {
       ],
     );
   }
-
 }
 
 class _StatCard extends StatelessWidget {
@@ -445,10 +467,7 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             const SizedBox(height: 2),
             Text(
@@ -459,6 +478,61 @@ class _StatCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Seviye N" with progress to the next level (web profile header).
+class _LevelBar extends StatelessWidget {
+  const _LevelBar(this.progress);
+
+  final LevelProgress progress;
+
+  @override
+  Widget build(BuildContext context) {
+    const label = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      color: AppColors.grey500,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Seviye ${progress.level}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${progress.xpInLevel} / ${LevelProgress.xpPerLevel} XP',
+              style: label,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: progress.fraction,
+            minHeight: 12,
+            backgroundColor: AppColors.grey100,
+            color: AppColors.primary,
+          ),
+        ),
+      ],
     );
   }
 }

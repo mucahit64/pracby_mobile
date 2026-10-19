@@ -94,10 +94,16 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
   void setBalances({int? energy, int? acorns}) {
     final user = state.valueOrNull;
     if (user == null) return;
+    final newEnergy = energy ?? user.energy;
     state = AsyncValue.data(
       user.copyWith(
-        energy: energy ?? user.energy,
+        energy: newEnergy,
         acorns: acorns ?? user.acorns,
+        // Keeps the header countdown going after an offline change; like
+        // the server, regen starts when energy drops below max.
+        nextEnergyAt: newEnergy >= maxEnergy
+            ? null
+            : user.nextEnergyAt ?? DateTime.now().add(energyRegenInterval),
       ),
     );
     ref.read(responseCacheProvider).patchUser(energy: energy, acorns: acorns);

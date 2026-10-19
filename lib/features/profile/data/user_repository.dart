@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_client.dart';
 import 'package:pracby_mobile/core/api/endpoints.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
+import 'package:pracby_mobile/features/profile/data/models/streak_day.dart';
 import 'package:pracby_mobile/features/profile/data/models/user_stats.dart';
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {
@@ -9,36 +10,39 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
 });
 
 class UserRepository {
-  const UserRepository({required ApiClient apiClient})
-      : _apiClient = apiClient;
+  const UserRepository({required ApiClient apiClient}) : _apiClient = apiClient;
 
   final ApiClient _apiClient;
 
   Future<UserStats> getStats() async {
-    final response =
-        await _apiClient.get<Map<String, dynamic>>(Endpoints.myStats);
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      Endpoints.myStats,
+    );
     return UserStats.fromJson(response.data!);
   }
 
   Future<List<Achievement>> getAchievements() async {
-    final response =
-        await _apiClient.get<List<dynamic>>(Endpoints.myAchievements);
+    final response = await _apiClient.get<List<dynamic>>(
+      Endpoints.myAchievements,
+    );
     return (response.data ?? [])
         .map((e) => Achievement.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  Future<List<StreakHistory>> getStreakHistory() async {
-    final response =
-        await _apiClient.get<List<dynamic>>(Endpoints.myStreakHistory);
+  Future<List<StreakDay>> getStreakHistory() async {
+    final response = await _apiClient.get<List<dynamic>>(
+      Endpoints.myStreakHistory,
+    );
     return (response.data ?? [])
-        .map((e) => StreakHistory.fromJson(e as Map<String, dynamic>))
+        .map((e) => StreakDay.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
   Future<List<EnrollmentModel>> getEnrollments() async {
-    final response =
-        await _apiClient.get<List<dynamic>>(Endpoints.myEnrollments);
+    final response = await _apiClient.get<List<dynamic>>(
+      Endpoints.myEnrollments,
+    );
     return (response.data ?? [])
         .map((e) => EnrollmentModel.fromJson(e as Map<String, dynamic>))
         .toList();

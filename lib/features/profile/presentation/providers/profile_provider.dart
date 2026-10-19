@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
+import 'package:pracby_mobile/features/profile/data/models/streak_day.dart';
 import 'package:pracby_mobile/features/profile/data/models/user_stats.dart';
 import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 
@@ -21,4 +22,16 @@ final enrollmentsProvider = FutureProvider<List<EnrollmentModel>>((ref) async {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
   return ref.watch(userRepositoryProvider).getEnrollments();
+});
+
+/// This week's days (Mon–Sun) with quiz activity. Empty for guests, or when
+/// it can't be loaded: the streak count still shows.
+final streakHistoryProvider = FutureProvider<List<StreakDay>>((ref) async {
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return [];
+  try {
+    return await ref.watch(userRepositoryProvider).getStreakHistory();
+  } catch (_) {
+    return [];
+  }
 });

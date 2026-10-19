@@ -65,17 +65,3 @@ Map<String, dynamic> _$$AchievementImplToJson(_$AchievementImpl instance) =>
       'requirement_value': instance.requirementValue,
       'earned_at': instance.earnedAt?.toIso8601String(),
     };
-
-_$StreakHistoryImpl _$$StreakHistoryImplFromJson(Map<String, dynamic> json) =>
-    _$StreakHistoryImpl(
-      date: json['date'] as String,
-      xpEarned: (json['xp_earned'] as num?)?.toInt() ?? 0,
-      quizzesCompleted: (json['quizzes_completed'] as num?)?.toInt() ?? 0,
-    );
-
-Map<String, dynamic> _$$StreakHistoryImplToJson(_$StreakHistoryImpl instance) =>
-    <String, dynamic>{
-      'date': instance.date,
-      'xp_earned': instance.xpEarned,
-      'quizzes_completed': instance.quizzesCompleted,
-    };

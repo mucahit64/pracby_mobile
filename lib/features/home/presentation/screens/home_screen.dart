@@ -5,6 +5,7 @@ import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/storage/hive_storage.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/countdown.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -13,6 +14,7 @@ import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/map_dialogs.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/lesson_map_node.dart';
+import 'package:pracby_mobile/features/home/presentation/widgets/status_sheets.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
 import 'package:pracby_mobile/features/profile/data/user_repository.dart';
@@ -157,9 +159,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   PreferredSizeWidget _buildTopBar(BuildContext context, UserModel? user) {
     final stats = ref.watch(userStatsProvider).valueOrNull;
     final guest = ref.watch(guestProvider);
+    final energy = ref.watch(energyStatusProvider);
     // Guests show their local balances (docs 10.4, 10.5).
     final acorns = user?.acorns ?? guest.acornBalance;
-    final energy = user?.energy ?? guest.energyCount;
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -168,45 +170,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       title: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.local_fire_department,
-            color: Color(0xFFEF4444),
-            size: 22,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${stats?.currentStreak ?? 0}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: AppColors.grey800,
+          _TopBarItem(
+            icon: const Icon(
+              Icons.local_fire_department,
+              color: Color(0xFFEF4444),
+              size: 22,
             ),
+            label: '${stats?.currentStreak ?? 0}',
+            tooltip: 'Seri',
+            onTap: () => showStreakSheet(context),
           ),
-          const SizedBox(width: 20),
-          const Icon(Icons.eco, color: AppColors.accent, size: 22),
-          const SizedBox(width: 4),
-          Text(
-            '$acorns',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: AppColors.grey800,
+          const SizedBox(width: 12),
+          _TopBarItem(
+            icon: const Icon(Icons.eco, color: AppColors.accent, size: 22),
+            label: '$acorns',
+            tooltip: 'Palamut',
+            onTap: () => context.go(Routes.store),
+          ),
+          const SizedBox(width: 12),
+          _TopBarItem(
+            icon: const Icon(
+              Icons.battery_charging_full,
+              color: Color(0xFF22C55E),
+              size: 22,
             ),
-          ),
-          const SizedBox(width: 20),
-          const Icon(
-            Icons.battery_charging_full,
-            color: Color(0xFF22C55E),
-            size: 22,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '$energy',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: AppColors.grey800,
-            ),
+            label: energy.unlimited ? '∞' : '${energy.count}',
+            tooltip: 'Enerji',
+            onTap: () => showEnergySheet(context),
+            trailing: energy.unlimited || energy.isFull
+                ? null
+                : Countdown(
+                    target: energy.nextEnergyAt,
+                    onDone: () => refreshEnergy(ref),
+                    builder: (context, remaining) => remaining == null
+                        ? const SizedBox.shrink()
+                        : _CountdownChip(Countdown.format(remaining)),
+                  ),
           ),
         ],
       ),
@@ -675,5 +674,82 @@ class _CourseRoadmapSection extends ConsumerWidget {
     } else {
       onStart(topic.id, step?.id, 'lesson');
     }
+  }
+}
+
+/// A header counter (streak, acorns, energy) that opens its details.
+class _TopBarItem extends StatelessWidget {
+  const _TopBarItem({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final Widget icon;
+  final String label;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '$tooltip: $label',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: AppColors.grey800,
+                ),
+              ),
+              ?trailing,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Time to the next energy, next to the count (web mobile header).
+class _CountdownChip extends StatelessWidget {
+  const _CountdownChip(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.error,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
   }
 }

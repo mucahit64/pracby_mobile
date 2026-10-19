@@ -40,15 +40,3 @@ class Achievement with _$Achievement {
   factory Achievement.fromJson(Map<String, dynamic> json) =>
       _$AchievementFromJson(json);
 }
-
-@freezed
-class StreakHistory with _$StreakHistory {
-  const factory StreakHistory({
-    required String date,
-    @JsonKey(name: 'xp_earned') @Default(0) int xpEarned,
-    @JsonKey(name: 'quizzes_completed') @Default(0) int quizzesCompleted,
-  }) = _StreakHistory;
-
-  factory StreakHistory.fromJson(Map<String, dynamic> json) =>
-      _$StreakHistoryFromJson(json);
-}
