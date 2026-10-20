@@ -5,30 +5,42 @@ import 'package:pracby_mobile/features/profile/data/models/streak_day.dart';
 import 'package:pracby_mobile/features/profile/data/models/user_stats.dart';
 import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 
+/// The logged-in user's ID. The providers below depend on this rather than
+/// on the whole user: watching the user rebuilt them — and showed a loading
+/// state that reset the lesson map's scroll — whenever energy or acorns
+/// changed. They still reload when the account changes; after a quiz they
+/// are invalidated explicitly (see [refreshAfterQuiz]).
+final _userIdProvider = Provider<String?>(
+  (ref) => ref.watch(authStateProvider.select((s) => s.valueOrNull?.id)),
+);
+
+/// Stats, streak and achievements change when a quiz is finished.
+void refreshAfterQuiz(Ref ref) {
+  ref
+    ..invalidate(userStatsProvider)
+    ..invalidate(streakHistoryProvider)
+    ..invalidate(achievementsProvider);
+}
+
 final userStatsProvider = FutureProvider<UserStats>((ref) async {
-  // Rebuild when auth state changes so stale data from a previous user is cleared
-  final user = ref.watch(authStateProvider).valueOrNull;
-  if (user == null) return const UserStats();
+  if (ref.watch(_userIdProvider) == null) return const UserStats();
   return ref.watch(userRepositoryProvider).getStats();
 });
 
 final achievementsProvider = FutureProvider<List<Achievement>>((ref) async {
-  final user = ref.watch(authStateProvider).valueOrNull;
-  if (user == null) return [];
+  if (ref.watch(_userIdProvider) == null) return [];
   return ref.watch(userRepositoryProvider).getAchievements();
 });
 
 final enrollmentsProvider = FutureProvider<List<EnrollmentModel>>((ref) async {
-  final user = ref.watch(authStateProvider).valueOrNull;
-  if (user == null) return [];
+  if (ref.watch(_userIdProvider) == null) return [];
   return ref.watch(userRepositoryProvider).getEnrollments();
 });
 
 /// This week's days (Mon–Sun) with quiz activity. Empty for guests, or when
 /// it can't be loaded: the streak count still shows.
 final streakHistoryProvider = FutureProvider<List<StreakDay>>((ref) async {
-  final user = ref.watch(authStateProvider).valueOrNull;
-  if (user == null) return [];
+  if (ref.watch(_userIdProvider) == null) return [];
   try {
     return await ref.watch(userRepositoryProvider).getStreakHistory();
   } catch (_) {

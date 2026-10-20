@@ -143,6 +143,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: isGuest
           ? map()
           : enrollmentsAsync.when(
+              // A reload keeps showing the map (and its scroll position).
+              skipLoadingOnReload: true,
               loading: () => const PbLoading(),
               error: (e, _) => _buildRoadmapContent(context, user),
               data: (enrollments) => enrollments.isEmpty
@@ -509,6 +511,9 @@ class _CourseRoadmapSection extends ConsumerWidget {
     // Offline, a failed refresh keeps showing the last loaded map.
     return courseFullAsync.when(
       skipError: true,
+      // New guest results rebuild this provider; keep the map on screen
+      // instead of a loader so the scroll position doesn't jump.
+      skipLoadingOnReload: true,
       loading: () => const SizedBox(
         height: 80,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),

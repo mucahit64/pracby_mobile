@@ -50,7 +50,9 @@ class QuizScreen extends ConsumerWidget {
         onRetry: controller.restart,
         // Guests see the register wall after each quiz (docs 10.8).
         onContinue: state.isGuest
-            ? () => context.go(Routes.registerWall)
+            // Replaces the quiz, so the lesson map stays underneath with
+            // its scroll position.
+            ? () => context.pushReplacement(Routes.registerWall)
             : () => _leave(context, ref),
       );
     } else if (state.questions.isNotEmpty) {

@@ -86,7 +86,10 @@ class RegisterWallScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () => context.go(Routes.home),
+                    // Back to the map it was opened over, where it was left.
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go(Routes.home),
                     child: const Text(
                       '← Ana sayfaya dön',
                       style: TextStyle(

@@ -231,10 +231,19 @@ class _EnrollmentTile extends StatelessWidget {
           else
             OutlinedButton(
               onPressed: enabled ? onSwitch : null,
+              // The theme's minimumSize is full width; inside this Row that
+              // squeezed the exam name to a column of letters and pushed the
+              // button off-screen.
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary, width: 1.5),
+                minimumSize: const Size(56, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 visualDensity: VisualDensity.compact,
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               child: const Text('Geç'),
             ),

@@ -8,6 +8,7 @@ import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
+import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/quiz/data/models/question_model.dart';
 import 'package:pracby_mobile/features/quiz/data/models/quiz_answer.dart';
@@ -409,6 +410,7 @@ class QuizController extends StateNotifier<QuizState> {
         finished: true,
       );
       unawaited(_ref.read(authStateProvider.notifier).refreshUser());
+      refreshAfterQuiz(_ref);
     } catch (_) {
       // Network failure — queue it and send when back online (docs 7.5.1).
       // Until then the result, balances and lesson map are shown locally:
