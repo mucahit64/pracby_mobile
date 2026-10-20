@@ -267,7 +267,7 @@ class __$$UserStatsImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$UserStatsImpl implements _UserStats {
+class _$UserStatsImpl extends _UserStats with DiagnosticableTreeMixin {
   const _$UserStatsImpl({
     @JsonKey(name: 'user_id') this.userId,
     this.xp = 0,
@@ -281,7 +281,7 @@ class _$UserStatsImpl implements _UserStats {
     @JsonKey(name: 'quizzes_completed') this.quizzesDone = 0,
     @JsonKey(name: 'last_active_date') this.lastActiveDate,
     @JsonKey(name: 'updated_at') this.updatedAt,
-  });
+  }) : super._();
 
   factory _$UserStatsImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserStatsImplFromJson(json);
@@ -324,8 +324,27 @@ class _$UserStatsImpl implements _UserStats {
   final DateTime? updatedAt;
 
   @override
-  String toString() {
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
     return 'UserStats(userId: $userId, xp: $xp, level: $level, streak: $streak, totalXp: $totalXp, maxStreak: $maxStreak, dailyXp: $dailyXp, weeklyXp: $weeklyXp, currentStreak: $currentStreak, quizzesDone: $quizzesDone, lastActiveDate: $lastActiveDate, updatedAt: $updatedAt)';
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(DiagnosticsProperty('type', 'UserStats'))
+      ..add(DiagnosticsProperty('userId', userId))
+      ..add(DiagnosticsProperty('xp', xp))
+      ..add(DiagnosticsProperty('level', level))
+      ..add(DiagnosticsProperty('streak', streak))
+      ..add(DiagnosticsProperty('totalXp', totalXp))
+      ..add(DiagnosticsProperty('maxStreak', maxStreak))
+      ..add(DiagnosticsProperty('dailyXp', dailyXp))
+      ..add(DiagnosticsProperty('weeklyXp', weeklyXp))
+      ..add(DiagnosticsProperty('currentStreak', currentStreak))
+      ..add(DiagnosticsProperty('quizzesDone', quizzesDone))
+      ..add(DiagnosticsProperty('lastActiveDate', lastActiveDate))
+      ..add(DiagnosticsProperty('updatedAt', updatedAt));
   }
 
   @override
@@ -385,7 +404,7 @@ class _$UserStatsImpl implements _UserStats {
   }
 }
 
-abstract class _UserStats implements UserStats {
+abstract class _UserStats extends UserStats {
   const factory _UserStats({
     @JsonKey(name: 'user_id') final String? userId,
     final int xp,
@@ -400,6 +419,7 @@ abstract class _UserStats implements UserStats {
     @JsonKey(name: 'last_active_date') final String? lastActiveDate,
     @JsonKey(name: 'updated_at') final DateTime? updatedAt,
   }) = _$UserStatsImpl;
+  const _UserStats._() : super._();
 
   factory _UserStats.fromJson(Map<String, dynamic> json) =
       _$UserStatsImpl.fromJson;
@@ -644,7 +664,7 @@ class __$$AchievementImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$AchievementImpl implements _Achievement {
+class _$AchievementImpl with DiagnosticableTreeMixin implements _Achievement {
   const _$AchievementImpl({
     required this.id,
     @JsonKey(name: 'name') required this.title,
@@ -682,8 +702,23 @@ class _$AchievementImpl implements _Achievement {
   final DateTime? earnedAt;
 
   @override
-  String toString() {
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
     return 'Achievement(id: $id, title: $title, description: $description, iconUrl: $iconUrl, category: $category, requirementType: $requirementType, requirementValue: $requirementValue, earnedAt: $earnedAt)';
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(DiagnosticsProperty('type', 'Achievement'))
+      ..add(DiagnosticsProperty('id', id))
+      ..add(DiagnosticsProperty('title', title))
+      ..add(DiagnosticsProperty('description', description))
+      ..add(DiagnosticsProperty('iconUrl', iconUrl))
+      ..add(DiagnosticsProperty('category', category))
+      ..add(DiagnosticsProperty('requirementType', requirementType))
+      ..add(DiagnosticsProperty('requirementValue', requirementValue))
+      ..add(DiagnosticsProperty('earnedAt', earnedAt));
   }
 
   @override

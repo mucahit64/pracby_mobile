@@ -216,7 +216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: Color(0xFFEF4444),
               size: 22,
             ),
-            label: '${stats?.currentStreak ?? 0}',
+            label: '${stats?.displayStreak ?? 0}',
             tooltip: 'Seri',
             onTap: () => showStreakSheet(context),
           ),

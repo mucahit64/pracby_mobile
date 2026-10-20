@@ -155,7 +155,7 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(width: 8),
             _StatCard(
               label: 'Güncel Seri',
-              value: '${stats.currentStreak}',
+              value: '${stats.displayStreak}',
               icon: Icons.local_fire_department,
               iconColor: AppColors.error,
             ),
@@ -220,7 +220,7 @@ class ProfileScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${stats.currentStreak} günlük seri',
+                      '${stats.displayStreak} günlük seri',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,

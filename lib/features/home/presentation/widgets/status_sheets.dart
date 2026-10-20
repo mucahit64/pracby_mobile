@@ -231,7 +231,7 @@ class _StreakSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final streak = ref.watch(userStatsProvider).valueOrNull?.currentStreak ?? 0;
+    final streak = ref.watch(userStatsProvider).valueOrNull?.displayStreak ?? 0;
     final days = ref.watch(streakHistoryProvider).valueOrNull ?? const [];
     final isGuest = ref.watch(authStateProvider).valueOrNull == null;
     return Column(
