@@ -50,13 +50,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     await _route();
   }
 
-  Future<void> _route() async {
+  Future<void> _route({bool retry = false}) async {
     if (!mounted) return;
     // AuthNotifier.build already called /users/me (and dropped a 401/403
     // token). Any other failure surfaces here as an error.
     UserModel? user;
     try {
-      user = await ref.read(authStateProvider.future);
+      // A retry must wait for a fresh request: refresh() rebuilds the
+      // provider and returns the new future, read() could hand back the
+      // failed one.
+      user = await (retry
+          ? ref.refresh(authStateProvider.future)
+          : ref.read(authStateProvider.future));
     } catch (_) {
       if (mounted) setState(() => _startupFailed = true);
       return;
@@ -69,8 +74,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   void _retry() {
     setState(() => _startupFailed = false);
-    ref.invalidate(authStateProvider);
-    _route();
+    _route(retry: true);
+  }
+
+  /// Way out when the session keeps failing: drop the token and continue
+  /// as a guest (or from the welcome screen).
+  Future<void> _logout() async {
+    await ref.read(authStateProvider.notifier).logout();
+    if (!mounted) return;
+    setState(() => _startupFailed = false);
+    final isGuest = ref.read(guestProvider).isActive;
+    context.go(isGuest ? Routes.home : Routes.welcome);
   }
 
   @override
@@ -140,6 +154,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     child: const Text(
                       'Tekrar Dene',
                       style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _logout,
+                    child: const Text(
+                      'Çıkış Yap',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
                     ),
                   ),
                 ],

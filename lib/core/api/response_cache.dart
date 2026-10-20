@@ -10,7 +10,8 @@ final responseCacheProvider = Provider<ResponseCache>((ref) {
 });
 
 /// Keeps the last successful response of content GETs and serves it when
-/// the request fails for lack of a connection (docs 7.5.1). This keeps the
+/// the request fails for lack of a connection or because the server is
+/// briefly unavailable (docs 7.5.1). This keeps the
 /// lesson map, energy packages and the logged-in user available offline.
 ///
 /// Quiz questions are deliberately not cached: a quiz only starts online.
@@ -47,7 +48,15 @@ class ResponseCache {
     },
     onError: (error, handler) {
       final options = error.requestOptions;
-      final cached = error.response == null && _isCacheable(options)
+      // No response (offline) or the server is temporarily unavailable
+      // (e.g. 502/503/504 during a deploy): serve the last good copy.
+      final status = error.response?.statusCode;
+      final unavailable =
+          error.response == null ||
+          status == 502 ||
+          status == 503 ||
+          status == 504;
+      final cached = unavailable && _isCacheable(options)
           ? _storage.responseCacheBox.get(_key(options))
           : null;
       if (cached == null) return handler.next(error);

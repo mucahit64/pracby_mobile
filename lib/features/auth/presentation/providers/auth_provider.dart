@@ -33,10 +33,13 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
       // user isn't turned into a guest by a missing connection.
       return await ref.read(authRepositoryProvider).getMe();
     } on ApiException catch (e) {
-      // A rejected token (401 is already deleted by ApiClient, 403 e.g. a
-      // deleted user) ends the session, like the web.
-      if (e.statusCode == 401 || e.statusCode == 403) {
+      // A rejected token ends the session, like the web: 401 (already
+      // deleted by ApiClient), 403, or 404 — the token is validly signed
+      // but its account is gone (e.g. the database was reset).
+      if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
         await ref.read(secureStorageProvider).deleteToken();
+        // Cached data (profile, progress) belonged to that account.
+        await ref.read(responseCacheProvider).clear();
         return null;
       }
       // Server error, or offline without a cached profile: keep the token
