@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/leaderboard/data/models/leaderboard_entry.dart';
@@ -78,6 +79,10 @@ class _LeagueTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entriesAsync = ref.watch(leaderboardProvider(league));
+    // The API has no "me" flag; match by username like the web.
+    final myUsername = ref.watch(
+      authStateProvider.select((s) => s.valueOrNull?.username),
+    );
 
     return entriesAsync.when(
       loading: () => const PbLoading(),
@@ -90,8 +95,12 @@ class _LeagueTab extends ConsumerWidget {
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: entries.length,
-          itemBuilder: (context, index) =>
-              _RankEntryTile(entry: entries[index], totalCount: entries.length),
+          itemBuilder: (context, index) => _RankEntryTile(
+            entry: entries[index],
+            position: index + 1,
+            totalCount: entries.length,
+            isMe: entries[index].username == myUsername,
+          ),
         );
       },
     );
@@ -99,29 +108,38 @@ class _LeagueTab extends ConsumerWidget {
 }
 
 class _RankEntryTile extends StatelessWidget {
-  const _RankEntryTile({required this.entry, required this.totalCount});
+  const _RankEntryTile({
+    required this.entry,
+    required this.position,
+    required this.totalCount,
+    required this.isMe,
+  });
 
   final LeaderboardEntry entry;
+
+  /// 1-based place in the list (web uses the index, not `rank`).
+  final int position;
   final int totalCount;
+  final bool isMe;
 
   @override
   Widget build(BuildContext context) {
-    final isPromotion = entry.rank <= 3;
-    final isDemotion = entry.rank > totalCount - 3;
+    final isPromotion = position <= 3;
+    final isDemotion = position > totalCount - 3;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: entry.isCurrentUser
+        color: isMe
             ? AppColors.primary.withValues(alpha: 0.1)
             : isPromotion
                 ? AppColors.success.withValues(alpha: 0.05)
                 : isDemotion
                     ? AppColors.error.withValues(alpha: 0.05)
                     : null,
-        border: entry.isCurrentUser
+        border: isMe
             ? Border.all(color: AppColors.primary, width: 2)
             : null,
       ),
@@ -130,7 +148,7 @@ class _RankEntryTile extends StatelessWidget {
           SizedBox(
             width: 32,
             child: Text(
-              '${entry.rank}',
+              '$position',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
@@ -156,13 +174,13 @@ class _RankEntryTile extends StatelessWidget {
               entry.username,
               style: TextStyle(
                 fontWeight:
-                    entry.isCurrentUser ? FontWeight.w700 : FontWeight.w500,
+                    isMe ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 15,
               ),
             ),
           ),
           Text(
-            '${entry.xp} XP',
+            '${entry.xpEarned} XP',
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: AppColors.primary,
@@ -174,7 +192,7 @@ class _RankEntryTile extends StatelessWidget {
   }
 
   Color _getRankColor() {
-    switch (entry.rank) {
+    switch (position) {
       case 1:
         return const Color(0xFFFFD700);
       case 2:

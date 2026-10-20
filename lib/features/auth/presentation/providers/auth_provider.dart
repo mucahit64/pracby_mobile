@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_client.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/api/response_cache.dart';
 import 'package:pracby_mobile/core/storage/secure_storage.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
@@ -31,8 +32,17 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
       // Offline, this is the cached profile (ResponseCache), so a logged-in
       // user isn't turned into a guest by a missing connection.
       return await ref.read(authRepositoryProvider).getMe();
-    } catch (_) {
-      return null;
+    } on ApiException catch (e) {
+      // A rejected token (401 is already deleted by ApiClient, 403 e.g. a
+      // deleted user) ends the session, like the web.
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await ref.read(secureStorageProvider).deleteToken();
+        return null;
+      }
+      // Server error, or offline without a cached profile: keep the token
+      // and report the error instead of acting as a logged-out guest that
+      // still sends it. The splash offers a retry.
+      rethrow;
     }
   }
 

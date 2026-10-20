@@ -41,19 +41,36 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   /// Launch logic (docs 3.8): a valid token goes home, otherwise a guest
   /// with a chosen exam goes home as guest, otherwise exam selection.
+  /// Startup failed for a reason other than a rejected token (server error,
+  /// or offline without a cached profile). The token is kept; offer a retry.
+  bool _startupFailed = false;
+
   Future<void> _navigateAfterDelay() async {
     await Future<void>.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
+    await _route();
+  }
 
-    // AuthNotifier.build already called /users/me (and dropped a 401 token).
-    final user = await ref
-        .read(authStateProvider.future)
-        .then<UserModel?>((u) => u)
-        .catchError((Object _) => null);
+  Future<void> _route() async {
+    if (!mounted) return;
+    // AuthNotifier.build already called /users/me (and dropped a 401/403
+    // token). Any other failure surfaces here as an error.
+    UserModel? user;
+    try {
+      user = await ref.read(authStateProvider.future);
+    } catch (_) {
+      if (mounted) setState(() => _startupFailed = true);
+      return;
+    }
     if (!mounted) return;
 
     final isGuest = ref.read(guestProvider).isActive;
     context.go(user != null || isGuest ? Routes.home : Routes.welcome);
+  }
+
+  void _retry() {
+    setState(() => _startupFailed = false);
+    ref.invalidate(authStateProvider);
+    _route();
   }
 
   @override
@@ -102,6 +119,30 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   'Sınavlara hazırlanmanın en eğlenceli yolu',
                   style: TextStyle(fontSize: 14, color: AppColors.grey200),
                 ),
+                if (_startupFailed) ...[
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Sunucuya bağlanılamadı.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _retry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.white,
+                      foregroundColor: AppColors.primary,
+                      minimumSize: const Size(160, 44),
+                    ),
+                    child: const Text(
+                      'Tekrar Dene',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

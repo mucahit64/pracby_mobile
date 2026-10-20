@@ -279,6 +279,12 @@ class GuestNotifier extends StateNotifier<GuestState> {
   }
 
   /// Removes guest progress; [guestId] is kept (docs 10.1).
+  /// Forgets the chosen exam but keeps progress, energy and acorns (web
+  /// removes only `guestExamTypeId` when that exam no longer exists).
+  void clearExamType() => _save(
+    state.copyWith(examTypeId: () => null, examGroupId: () => null),
+  );
+
   void clear() {
     state = const GuestState();
     unawaited(_hive.guestBox.delete(_stateKey));

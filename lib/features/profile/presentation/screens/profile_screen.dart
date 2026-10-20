@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
@@ -90,7 +91,8 @@ class ProfileScreen extends ConsumerWidget {
             statsAsync.when(
               loading: () => const PbLoading(),
               error: (_, __) => const SizedBox.shrink(),
-              data: (stats) => _buildStatsSection(context, stats),
+              data: (stats) =>
+                  _buildStatsSection(context, stats, acorns: user.acorns),
             ),
             const SizedBox(height: 24),
 
@@ -124,7 +126,14 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsSection(BuildContext context, UserStats stats) {
+  /// Same five cards as the web profile. weekly_xp / daily_xp aren't shown:
+  /// the server never updates them, so they were always 0 (docs 16.3, 19).
+  Widget _buildStatsSection(
+    BuildContext context,
+    UserStats stats, {
+    required int acorns,
+  }) {
+    final number = NumberFormat.decimalPattern('tr');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -139,20 +148,21 @@ class ProfileScreen extends ConsumerWidget {
           children: [
             _StatCard(
               label: 'Toplam XP',
-              value: '${stats.totalXp}',
-              icon: Icons.star,
+              value: number.format(stats.totalXp),
+              icon: Icons.bolt,
               iconColor: AppColors.accent,
             ),
             const SizedBox(width: 8),
             _StatCard(
-              label: 'Quiz',
-              value: '${stats.quizzesDone}',
-              icon: Icons.quiz_outlined,
+              label: 'Güncel Seri',
+              value: '${stats.currentStreak}',
+              icon: Icons.local_fire_department,
+              iconColor: AppColors.error,
             ),
             const SizedBox(width: 8),
             _StatCard(
-              label: 'Maks Seri',
-              value: '${stats.maxStreak} gün',
+              label: 'En Uzun Seri',
+              value: '${stats.maxStreak}',
               icon: Icons.emoji_events,
               iconColor: const Color(0xFFD97706),
             ),
@@ -162,17 +172,16 @@ class ProfileScreen extends ConsumerWidget {
         Row(
           children: [
             _StatCard(
-              label: 'Bu Hafta XP',
-              value: '${stats.weeklyXp}',
-              icon: Icons.trending_up,
-              iconColor: AppColors.success,
+              label: 'Quiz',
+              value: '${stats.quizzesDone}',
+              icon: Icons.track_changes,
             ),
             const SizedBox(width: 8),
             _StatCard(
-              label: 'Bugün XP',
-              value: '${stats.dailyXp}',
-              icon: Icons.my_location,
-              iconColor: AppColors.error,
+              label: 'Acorn',
+              value: number.format(acorns),
+              icon: Icons.eco,
+              iconColor: AppColors.acorn,
             ),
             const SizedBox(width: 8),
             const Expanded(child: SizedBox()),

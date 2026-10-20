@@ -221,7 +221,7 @@ class QuizController extends StateNotifier<QuizState> {
         energy: _ref.read(guestProvider).energyCount,
       );
     } on ApiException catch (e) {
-      state = state.copyWith(loading: false, error: () => e.message);
+      state = state.copyWith(loading: false, error: () => _startError(e));
     } catch (_) {
       state = state.copyWith(loading: false, error: () => 'Quiz başlatılamadı');
     }
@@ -244,6 +244,11 @@ class QuizController extends StateNotifier<QuizState> {
     }
     return false;
   }
+
+  /// Same text as the web when the questions can't be fetched offline.
+  static String _startError(ApiException e) => e.isNetworkError
+      ? 'Sorular yüklenemedi. İnternet bağlantını kontrol et.'
+      : e.message;
 
   Future<void> _start() async {
     if (_isGuest) return _startGuest();
@@ -287,7 +292,7 @@ class QuizController extends StateNotifier<QuizState> {
         await openEnergyDialog();
         return;
       }
-      state = state.copyWith(loading: false, error: () => e.message);
+      state = state.copyWith(loading: false, error: () => _startError(e));
     } catch (_) {
       state = state.copyWith(loading: false, error: () => 'Quiz başlatılamadı');
     }

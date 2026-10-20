@@ -44,17 +44,21 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         });
       }
     } on ApiException catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.isNetworkError ? 'İnternet bağlantısı yok.' : e.message,
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (!e.isNetworkError) {
+        // Same screen as a success, whatever the server said, so the reply
+        // doesn't reveal which emails have an account (web does the same).
+        setState(() => _emailSent = true);
+        return;
       }
+      // Nothing was sent; saying so reveals nothing about the account.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('İnternet bağlantısı yok.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -78,7 +82,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const Icon(Icons.mark_email_read_outlined, size: 80, color: AppColors.success),
         const SizedBox(height: 24),
         Text(
-          'E-posta Gönderildi!',
+          'E-posta gönderildi',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -86,8 +90,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Şifre sıfırlama bağlantısı e-posta adresine gönderildi. '
-          'Bağlantıyı açıp yeni şifreni belirle, sonra buradan giriş yap.',
+          // Doesn't claim the account exists (web wording).
+          'Eğer bu adres kayıtlıysa, şifre sıfırlama bağlantısı gönderildi. '
+          'Spam klasörünü de kontrol etmeyi unutma.',
           style: Theme.of(context).textTheme.bodyLarge,
           textAlign: TextAlign.center,
         ),

@@ -14,9 +14,10 @@ import 'package:pracby_mobile/features/profile/presentation/providers/profile_pr
 
 /// Exam selection, mirroring the web client's `pages/welcome.vue`.
 /// A visitor becomes a guest with the chosen exam and goes straight to the
-/// lesson map (docs 10); a logged-in user adds the exam to their enrollments
-/// and continues with it as the active exam. Picking an exam they are
-/// already enrolled in just switches to it.
+/// lesson map (docs 10). A logged-in user adds an exam to their enrollments,
+/// like the web profile's "Sınav Ekle": exams they already have aren't
+/// listed, the active exam doesn't change (unless they have none yet) and
+/// they go back to where they came from.
 class ExamSelectScreen extends ConsumerStatefulWidget {
   const ExamSelectScreen({super.key});
 
@@ -33,10 +34,18 @@ class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
     ...?ref.read(enrollmentsProvider).valueOrNull?.map((e) => e.examTypeId),
   };
 
+  bool get _isLoggedIn => ref.read(authStateProvider).valueOrNull != null;
+
+  /// Types that can still be picked: a logged-in user's enrolled exams are
+  /// left out (web profile modal).
+  List<ExamTypeModel> _availableTypes(ExamGroupModel group) => _isLoggedIn
+      ? group.examTypes.where((t) => !_enrolledIds.contains(t.id)).toList()
+      : group.examTypes;
+
   void _selectGroup(ExamGroupModel group) {
     if (!group.isActive) return;
     // A group with a single type selects it right away (docs 4).
-    if (group.examTypes.length == 1) {
+    if (group.examTypes.length == 1 && _availableTypes(group).isNotEmpty) {
       _selectExamType(group, group.examTypes.first);
       return;
     }
@@ -56,17 +65,20 @@ class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      if (!_enrolledIds.contains(type.id)) {
-        try {
-          await ref.read(userRepositoryProvider).addEnrollment(type.id);
-        } on ApiException catch (e) {
-          // 409: already enrolled (e.g. a stale list); just switch to it.
-          if (e.statusCode != 409) rethrow;
-        }
-        ref.invalidate(enrollmentsProvider);
+      try {
+        await ref.read(userRepositoryProvider).addEnrollment(type.id);
+      } on ApiException catch (e) {
+        // 409: already enrolled (a stale list) — nothing to add.
+        if (e.statusCode != 409) rethrow;
       }
-      await ref.read(authStateProvider.notifier).setActiveExam(type.id);
-      if (mounted) context.go(Routes.home);
+      ref.invalidate(enrollmentsProvider);
+      // Adding doesn't change the active exam (web); only a user without
+      // one starts on the new exam.
+      if (ref.read(authStateProvider).valueOrNull?.activeExamId == null) {
+        await ref.read(authStateProvider.notifier).setActiveExam(type.id);
+      }
+      if (!mounted) return;
+      context.canPop() ? context.pop() : context.go(Routes.home);
     } on ApiException catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -199,12 +211,22 @@ class _ExamSelectScreenState extends ConsumerState<ExamSelectScreen> {
             ),
           ),
         ),
-        for (final type in group.examTypes)
+        if (_availableTypes(group).isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Text(
+                'Bu gruptaki tüm sınavlara zaten kayıtlısın.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppColors.grey400),
+              ),
+            ),
+          ),
+        for (final type in _availableTypes(group))
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _OptionCard(
               title: type.name,
-              badge: _enrolledIds.contains(type.id) ? 'KAYITLI' : null,
               onTap: () => _selectExamType(group, type),
             ),
           ),

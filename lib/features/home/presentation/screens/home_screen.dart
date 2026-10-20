@@ -14,6 +14,7 @@ import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/map_dialogs.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/lesson_map_node.dart';
+import 'package:pracby_mobile/features/onboarding/data/exam_groups_repository.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/status_sheets.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
@@ -42,6 +43,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final prefs = ref.read(hiveStorageProvider).prefsBox;
     _selectedModuleId = prefs.get(_moduleKey);
     _selectedCourseId = prefs.get(_courseKey);
+  }
+
+  /// A guest whose exam was removed or deactivated goes back to exam
+  /// selection, like the web (docs 4). A failed request (offline) keeps the
+  /// exam.
+  void _checkGuestExamExists(String examTypeId) {
+    final groups = ref.watch(examGroupsProvider).valueOrNull;
+    if (groups == null) return;
+    final exists = groups.any(
+      (g) => g.isActive && g.examTypes.any((t) => t.id == examTypeId),
+    );
+    if (exists) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Navigate first: without an exam the router no longer allows home.
+      context.go(Routes.examSelect);
+      ref.read(guestProvider.notifier).clearExamType();
+    });
   }
 
   /// Updates the map selection and persists it (null clears it).
@@ -75,6 +94,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final guestExamId = ref.watch(guestProvider.select((g) => g.examTypeId));
     // A guest's exam lives on the device; they have no enrollments (docs 10).
     final isGuest = user == null && guestExamId != null;
+    if (isGuest) _checkGuestExamExists(guestExamId);
     final enrollmentsAsync = ref.watch(enrollmentsProvider);
 
     final enrolled = enrollmentsAsync.valueOrNull ?? const [];
@@ -121,7 +141,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _buildExamTabs(context, enrollments, activeExamId),
         if (activeExamId != null && modules.isNotEmpty)
           _buildModuleTabs(context, modules, activeModuleId),
-        if (courses.length > 1)
+        if (courses.isNotEmpty) // Web shows it even for a single course.
           _buildCourseTabs(context, courses, activeCourseIdValidated),
         Expanded(
           child: activeCourseIdValidated != null

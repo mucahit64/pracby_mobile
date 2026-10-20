@@ -9,21 +9,17 @@ part of 'leaderboard_entry.dart';
 _$LeaderboardEntryImpl _$$LeaderboardEntryImplFromJson(
   Map<String, dynamic> json,
 ) => _$LeaderboardEntryImpl(
-  userId: json['userId'] as String,
   username: json['username'] as String,
-  rank: (json['rank'] as num).toInt(),
-  xp: (json['xp'] as num).toInt(),
-  avatarUrl: json['avatarUrl'] as String?,
-  isCurrentUser: json['isCurrentUser'] as bool? ?? false,
+  avatarUrl: json['avatar_url'] as String?,
+  xpEarned: (json['xp_earned'] as num?)?.toInt() ?? 0,
+  rank: (json['rank'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$$LeaderboardEntryImplToJson(
   _$LeaderboardEntryImpl instance,
 ) => <String, dynamic>{
-  'userId': instance.userId,
   'username': instance.username,
+  'avatar_url': instance.avatarUrl,
+  'xp_earned': instance.xpEarned,
   'rank': instance.rank,
-  'xp': instance.xp,
-  'avatarUrl': instance.avatarUrl,
-  'isCurrentUser': instance.isCurrentUser,
 };

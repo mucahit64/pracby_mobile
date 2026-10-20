@@ -412,8 +412,11 @@ class _FlashcardState extends State<_Flashcard> {
 
   @override
   Widget build(BuildContext context) {
-    final back = widget.question.explanation ??
-        widget.question.typeData?['back'] as String? ??
+    // Like the web's `explanation || type_data.back || 'Açıklama yok'`: an
+    // empty string falls through too.
+    String? nonEmpty(String? v) => (v == null || v.isEmpty) ? null : v;
+    final back = nonEmpty(widget.question.explanation) ??
+        nonEmpty(widget.question.typeData?['back'] as String?) ??
         'Açıklama yok';
     return Column(
       children: [

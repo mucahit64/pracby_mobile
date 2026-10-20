@@ -21,12 +21,14 @@ LeaderboardEntry _$LeaderboardEntryFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$LeaderboardEntry {
-  String get userId => throw _privateConstructorUsedError;
   String get username => throw _privateConstructorUsedError;
-  int get rank => throw _privateConstructorUsedError;
-  int get xp => throw _privateConstructorUsedError;
+  @JsonKey(name: 'avatar_url')
   String? get avatarUrl => throw _privateConstructorUsedError;
-  bool get isCurrentUser => throw _privateConstructorUsedError;
+  @JsonKey(name: 'xp_earned')
+  int get xpEarned => throw _privateConstructorUsedError;
+
+  /// Can be null; the list order (by xp_earned) is the ranking.
+  int? get rank => throw _privateConstructorUsedError;
 
   /// Serializes this LeaderboardEntry to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -46,12 +48,10 @@ abstract class $LeaderboardEntryCopyWith<$Res> {
   ) = _$LeaderboardEntryCopyWithImpl<$Res, LeaderboardEntry>;
   @useResult
   $Res call({
-    String userId,
     String username,
-    int rank,
-    int xp,
-    String? avatarUrl,
-    bool isCurrentUser,
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
+    @JsonKey(name: 'xp_earned') int xpEarned,
+    int? rank,
   });
 }
 
@@ -70,39 +70,29 @@ class _$LeaderboardEntryCopyWithImpl<$Res, $Val extends LeaderboardEntry>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? userId = null,
     Object? username = null,
-    Object? rank = null,
-    Object? xp = null,
     Object? avatarUrl = freezed,
-    Object? isCurrentUser = null,
+    Object? xpEarned = null,
+    Object? rank = freezed,
   }) {
     return _then(
       _value.copyWith(
-            userId: null == userId
-                ? _value.userId
-                : userId // ignore: cast_nullable_to_non_nullable
-                      as String,
             username: null == username
                 ? _value.username
                 : username // ignore: cast_nullable_to_non_nullable
                       as String,
-            rank: null == rank
-                ? _value.rank
-                : rank // ignore: cast_nullable_to_non_nullable
-                      as int,
-            xp: null == xp
-                ? _value.xp
-                : xp // ignore: cast_nullable_to_non_nullable
-                      as int,
             avatarUrl: freezed == avatarUrl
                 ? _value.avatarUrl
                 : avatarUrl // ignore: cast_nullable_to_non_nullable
                       as String?,
-            isCurrentUser: null == isCurrentUser
-                ? _value.isCurrentUser
-                : isCurrentUser // ignore: cast_nullable_to_non_nullable
-                      as bool,
+            xpEarned: null == xpEarned
+                ? _value.xpEarned
+                : xpEarned // ignore: cast_nullable_to_non_nullable
+                      as int,
+            rank: freezed == rank
+                ? _value.rank
+                : rank // ignore: cast_nullable_to_non_nullable
+                      as int?,
           )
           as $Val,
     );
@@ -119,12 +109,10 @@ abstract class _$$LeaderboardEntryImplCopyWith<$Res>
   @override
   @useResult
   $Res call({
-    String userId,
     String username,
-    int rank,
-    int xp,
-    String? avatarUrl,
-    bool isCurrentUser,
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
+    @JsonKey(name: 'xp_earned') int xpEarned,
+    int? rank,
   });
 }
 
@@ -142,39 +130,29 @@ class __$$LeaderboardEntryImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? userId = null,
     Object? username = null,
-    Object? rank = null,
-    Object? xp = null,
     Object? avatarUrl = freezed,
-    Object? isCurrentUser = null,
+    Object? xpEarned = null,
+    Object? rank = freezed,
   }) {
     return _then(
       _$LeaderboardEntryImpl(
-        userId: null == userId
-            ? _value.userId
-            : userId // ignore: cast_nullable_to_non_nullable
-                  as String,
         username: null == username
             ? _value.username
             : username // ignore: cast_nullable_to_non_nullable
                   as String,
-        rank: null == rank
-            ? _value.rank
-            : rank // ignore: cast_nullable_to_non_nullable
-                  as int,
-        xp: null == xp
-            ? _value.xp
-            : xp // ignore: cast_nullable_to_non_nullable
-                  as int,
         avatarUrl: freezed == avatarUrl
             ? _value.avatarUrl
             : avatarUrl // ignore: cast_nullable_to_non_nullable
                   as String?,
-        isCurrentUser: null == isCurrentUser
-            ? _value.isCurrentUser
-            : isCurrentUser // ignore: cast_nullable_to_non_nullable
-                  as bool,
+        xpEarned: null == xpEarned
+            ? _value.xpEarned
+            : xpEarned // ignore: cast_nullable_to_non_nullable
+                  as int,
+        rank: freezed == rank
+            ? _value.rank
+            : rank // ignore: cast_nullable_to_non_nullable
+                  as int?,
       ),
     );
   }
@@ -184,34 +162,31 @@ class __$$LeaderboardEntryImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$LeaderboardEntryImpl implements _LeaderboardEntry {
   const _$LeaderboardEntryImpl({
-    required this.userId,
     required this.username,
-    required this.rank,
-    required this.xp,
-    this.avatarUrl,
-    this.isCurrentUser = false,
+    @JsonKey(name: 'avatar_url') this.avatarUrl,
+    @JsonKey(name: 'xp_earned') this.xpEarned = 0,
+    this.rank,
   });
 
   factory _$LeaderboardEntryImpl.fromJson(Map<String, dynamic> json) =>
       _$$LeaderboardEntryImplFromJson(json);
 
   @override
-  final String userId;
-  @override
   final String username;
   @override
-  final int rank;
-  @override
-  final int xp;
-  @override
+  @JsonKey(name: 'avatar_url')
   final String? avatarUrl;
   @override
-  @JsonKey()
-  final bool isCurrentUser;
+  @JsonKey(name: 'xp_earned')
+  final int xpEarned;
+
+  /// Can be null; the list order (by xp_earned) is the ranking.
+  @override
+  final int? rank;
 
   @override
   String toString() {
-    return 'LeaderboardEntry(userId: $userId, username: $username, rank: $rank, xp: $xp, avatarUrl: $avatarUrl, isCurrentUser: $isCurrentUser)';
+    return 'LeaderboardEntry(username: $username, avatarUrl: $avatarUrl, xpEarned: $xpEarned, rank: $rank)';
   }
 
   @override
@@ -219,28 +194,19 @@ class _$LeaderboardEntryImpl implements _LeaderboardEntry {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$LeaderboardEntryImpl &&
-            (identical(other.userId, userId) || other.userId == userId) &&
             (identical(other.username, username) ||
                 other.username == username) &&
-            (identical(other.rank, rank) || other.rank == rank) &&
-            (identical(other.xp, xp) || other.xp == xp) &&
             (identical(other.avatarUrl, avatarUrl) ||
                 other.avatarUrl == avatarUrl) &&
-            (identical(other.isCurrentUser, isCurrentUser) ||
-                other.isCurrentUser == isCurrentUser));
+            (identical(other.xpEarned, xpEarned) ||
+                other.xpEarned == xpEarned) &&
+            (identical(other.rank, rank) || other.rank == rank));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    userId,
-    username,
-    rank,
-    xp,
-    avatarUrl,
-    isCurrentUser,
-  );
+  int get hashCode =>
+      Object.hash(runtimeType, username, avatarUrl, xpEarned, rank);
 
   /// Create a copy of LeaderboardEntry
   /// with the given fields replaced by the non-null parameter values.
@@ -261,29 +227,27 @@ class _$LeaderboardEntryImpl implements _LeaderboardEntry {
 
 abstract class _LeaderboardEntry implements LeaderboardEntry {
   const factory _LeaderboardEntry({
-    required final String userId,
     required final String username,
-    required final int rank,
-    required final int xp,
-    final String? avatarUrl,
-    final bool isCurrentUser,
+    @JsonKey(name: 'avatar_url') final String? avatarUrl,
+    @JsonKey(name: 'xp_earned') final int xpEarned,
+    final int? rank,
   }) = _$LeaderboardEntryImpl;
 
   factory _LeaderboardEntry.fromJson(Map<String, dynamic> json) =
       _$LeaderboardEntryImpl.fromJson;
 
   @override
-  String get userId;
-  @override
   String get username;
   @override
-  int get rank;
-  @override
-  int get xp;
-  @override
+  @JsonKey(name: 'avatar_url')
   String? get avatarUrl;
   @override
-  bool get isCurrentUser;
+  @JsonKey(name: 'xp_earned')
+  int get xpEarned;
+
+  /// Can be null; the list order (by xp_earned) is the ranking.
+  @override
+  int? get rank;
 
   /// Create a copy of LeaderboardEntry
   /// with the given fields replaced by the non-null parameter values.
