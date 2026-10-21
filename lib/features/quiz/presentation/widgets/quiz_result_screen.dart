@@ -45,7 +45,7 @@ class QuizResultScreen extends StatelessWidget {
               Text(
                 depleted
                     ? 'Enerjin Bitti!'
-                    : (bossPassed ? 'Boss Testi Geçildi!' : 'Tebrikler! 🎊'),
+                    : (bossPassed ? 'Boss Testi Geçildi!' : 'Tebrikler!'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 24,
@@ -68,7 +68,11 @@ class QuizResultScreen extends StatelessWidget {
               _scoreCard(total),
               if (state.stepCompleted) ...[
                 const SizedBox(height: 20),
-                _pill('🎉 Adım tamamlandı!', AppColors.success),
+                _pill(
+                  'Adım tamamlandı!',
+                  AppColors.success,
+                  icon: PbIcons.check,
+                ),
               ],
               if (state.topicCompleted) ...[
                 const SizedBox(height: 20),
@@ -136,9 +140,16 @@ class QuizResultScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: const Text(
-                        '🔄 Tekrar Dene',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.refresh, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'Tekrar Dene',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
                       ),
                     ),
                   ),

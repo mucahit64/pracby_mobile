@@ -154,7 +154,7 @@ Future<bool> showRewardStepDialog(
           child: const PbIcon(PbIcons.gift, size: 44),
         ),
         const SizedBox(height: 16),
-        _title('Tebrikler! 🎉'),
+        _title('Tebrikler!'),
         const SizedBox(height: 6),
         _subtitle('Bu bölümü tamamladın. Ödülünü almaya hazır mısın?'),
         const SizedBox(height: 16),

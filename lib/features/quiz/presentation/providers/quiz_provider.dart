@@ -626,7 +626,7 @@ class QuizController extends StateNotifier<QuizState> {
     }
   }
 
-  /// "🔄 Tekrar Dene" on the result screen.
+  /// "Tekrar Dene" on the result screen.
   Future<void> restart() async {
     final energy = _isGuest
         ? _ref.read(guestProvider).energyCount

@@ -161,7 +161,7 @@ class _EnergySheet extends ConsumerWidget {
           const SizedBox(height: 12),
           if (energy.isFull)
             const Text(
-              'Enerjin dolu! 🎉',
+              'Enerjin dolu!',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.w700,

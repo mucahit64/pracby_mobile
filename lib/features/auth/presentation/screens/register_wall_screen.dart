@@ -28,7 +28,7 @@ class RegisterWallScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Harika gidiyorsun! 🎉',
+                    'Harika gidiyorsun!',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 20,

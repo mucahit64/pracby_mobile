@@ -313,7 +313,7 @@ class ExitWarningSheet extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                '💪 Öğrenmeye Devam',
+                'Öğrenmeye Devam',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
               ),
             ),
