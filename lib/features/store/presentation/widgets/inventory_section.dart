@@ -7,6 +7,7 @@ import 'package:pracby_mobile/features/store/data/models/inventory_item.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
 import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
+import 'package:pracby_mobile/features/store/presentation/widgets/store_widgets.dart';
 
 /// Effect names, same as the web store (`effectLabel`).
 String effectLabel(String itemType) => switch (itemType) {
@@ -40,39 +41,52 @@ class ActiveEffectsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Section(
+    return StoreSection(
       title: 'Aktif Etkiler',
       children: [
-        for (final effect in effects)
-          _Row(
-            highlighted: true,
-            leading: Row(
-              children: [
-                if (_effectIcon(effect.itemType) case final icon?) ...[
-                  PbIcon(icon, size: 20),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: Text(
-                    effectLabel(effect.itemType),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.grey800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            trailing: Text(
-              '${formatRemaining(effect.expiresAt)} kaldı',
+        StoreList(
+          gap: 8,
+          children: [for (final effect in effects) _effectRow(effect)],
+        ),
+      ],
+    );
+  }
+
+  Widget _effectRow(ActiveEffect effect) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary, width: 2),
+      ),
+      child: Row(
+        children: [
+          if (_effectIcon(effect.itemType) case final icon?) ...[
+            PbIcon(icon, size: 17),
+            const SizedBox(width: 4),
+          ],
+          Expanded(
+            child: Text(
+              effectLabel(effect.itemType),
               style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.grey400,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.grey800,
               ),
             ),
           ),
-      ],
+          const SizedBox(width: 8),
+          Text(
+            '${formatRemaining(effect.expiresAt)} kaldı',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.grey400,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -93,18 +107,21 @@ class _InventorySectionState extends ConsumerState<InventorySection> {
   Widget build(BuildContext context) {
     final inventoryAsync = ref.watch(storeInventoryProvider);
 
-    return _Section(
+    return StoreSection(
       title: 'Envanter',
       children: [
         inventoryAsync.when(
-          loading: () => const _Hint('Yükleniyor…'),
+          loading: () => const StoreHint('Yükleniyor…'),
           // The inventory isn't cached for offline use.
-          error: (_, __) => const _Hint(
+          error: (_, __) => const StoreHint(
             'Envanter yüklenemedi. İnternet bağlantını kontrol et.',
           ),
           data: (items) => items.isEmpty
-              ? const _Hint('Henüz hiç ürün almadın.')
-              : Column(children: [for (final item in items) _itemRow(item)]),
+              ? const StoreHint('Henüz hiç ürün almadın.')
+              : StoreList(
+                  gap: 8,
+                  children: [for (final item in items) _itemRow(item)],
+                ),
         ),
       ],
     );
@@ -112,54 +129,58 @@ class _InventorySectionState extends ConsumerState<InventorySection> {
 
   Widget _itemRow(InventoryItem item) {
     final busy = _activatingId == item.itemId;
-    return _Row(
-      leading: Row(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.grey200, width: 2),
+      ),
+      child: Row(
         children: [
-          Text(item.iconUrl ?? '📦', style: const TextStyle(fontSize: 20)),
+          StoreItemIcon(
+            iconUrl: item.iconUrl,
+            itemType: item.itemType,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               item.name,
               style: const TextStyle(
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: AppColors.grey800,
               ),
             ),
           ),
+          const SizedBox(width: 12),
           Text(
             'x${item.quantity}',
             style: const TextStyle(
+              fontSize: 14,
               fontWeight: FontWeight.w800,
               color: AppColors.grey400,
             ),
           ),
+          if (item.canActivate) ...[
+            const SizedBox(width: 12),
+            StorePrimaryButton(
+              onPressed: _activatingId == null ? () => _activate(item) : null,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              radius: 8,
+              edge: 2,
+              child: Text(
+                busy ? '…' : 'Kullan',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
-      trailing: item.canActivate
-          ? Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: ElevatedButton(
-                onPressed: _activatingId == null ? () => _activate(item) : null,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(72, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                child: busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text(
-                        'Kullan',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-              ),
-            )
-          : null,
     );
   }
 
@@ -230,89 +251,5 @@ class _InventorySectionState extends ConsumerState<InventorySection> {
       ),
     );
     return confirmed ?? false;
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: AppColors.grey800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row({required this.leading, this.trailing, this.highlighted = false});
-
-  final Widget leading;
-  final Widget? trailing;
-
-  /// Active effects use the purple outline of the web store.
-  final bool highlighted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: highlighted
-            ? AppColors.primary.withValues(alpha: 0.05)
-            : AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: highlighted ? AppColors.primary : AppColors.grey200,
-          width: 2,
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: leading),
-          if (trailing != null) trailing!,
-        ],
-      ),
-    );
-  }
-}
-
-class _Hint extends StatelessWidget {
-  const _Hint(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.grey400,
-        ),
-      ),
-    );
   }
 }

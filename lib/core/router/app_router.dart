@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
+import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -208,43 +211,45 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 class _ScaffoldWithNavBar extends ConsumerWidget {
   const _ScaffoldWithNavBar({required this.child});
 
+  /// Icon and screen reader label of each tab, in order.
+  static const _navItems = [
+    (PbIcons.book, 'Ana Sayfa'),
+    (PbIcons.trophy, 'Sıralama'),
+    (PbIcons.acorn, 'Mağaza'),
+    (PbIcons.profile, 'Profil'),
+  ];
+
   final Widget child;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBarTheme(
-        // Compact icon-only bar: 56 instead of Material's 80.
-        data: NavigationBarThemeData(
-          height: 56,
-          indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+      // Same as the web mobile bar: white, a 2px line on top, icons only and
+      // a light purple pill behind the current one.
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.grey200, width: 2)),
         ),
-        child: NavigationBar(
-          // Icons only; the labels stay for screen readers.
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-          selectedIndex: _calculateSelectedIndex(context),
-          onDestinationSelected: (index) => _onItemTapped(index, context, ref),
-          destinations: const [
-            NavigationDestination(
-              icon: PbIcon(PbIcons.book, size: 30),
-              label: 'Ana Sayfa',
-            ),
-            NavigationDestination(
-              icon: PbIcon(PbIcons.trophy, size: 30),
-              label: 'Sıralama',
-            ),
-            NavigationDestination(
-              icon: PbIcon(PbIcons.acorn, size: 30),
-              label: 'Mağaza',
-            ),
-            NavigationDestination(
-              icon: PbIcon(PbIcons.profile, size: 30),
-              label: 'Profil',
-            ),
-          ],
+        child: Padding(
+          // The home indicator's inset alone was too much under the icons.
+          padding: EdgeInsets.only(
+            top: 8,
+            bottom: max(8, MediaQuery.viewPaddingOf(context).bottom - 12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              for (final (i, (icon, label)) in _navItems.indexed)
+                _NavButton(
+                  icon: icon,
+                  label: label,
+                  selected: i == _calculateSelectedIndex(context),
+                  onTap: () => _onItemTapped(i, context, ref),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -273,5 +278,46 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
         final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
         isLoggedIn ? context.go(Routes.profile) : context.push(Routes.register);
     }
+  }
+}
+
+/// A bottom bar tab: the web's `px-5 py-1 rounded-xl bg-primary/10` pill
+/// around a 30px icon.
+class _NavButton extends StatelessWidget {
+  const _NavButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final PbIcons icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: PbIcon(icon, size: 30),
+        ),
+      ),
+    );
   }
 }

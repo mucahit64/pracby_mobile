@@ -43,3 +43,12 @@ final unlimitedEnergyProvider = Provider<bool>(
     ref.watch(activeEffectsProvider).valueOrNull ?? const [],
   ),
 );
+
+/// Acorn packages for sale (members only, like the web store).
+final acornPackagesProvider = FutureProvider<List<AcornPackage>>((ref) async {
+  final isLoggedIn = ref.watch(
+    authStateProvider.select((s) => s.valueOrNull != null),
+  );
+  if (!isLoggedIn) return [];
+  return ref.watch(storeRepositoryProvider).getAcornPackages();
+});

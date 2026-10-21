@@ -5,14 +5,16 @@ import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_icon.dart';
-import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
+import 'package:pracby_mobile/features/home/presentation/widgets/status_sheets.dart';
+import 'package:pracby_mobile/features/home/presentation/widgets/status_top_bar.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
 import 'package:pracby_mobile/features/store/presentation/providers/store_provider.dart';
 import 'package:pracby_mobile/features/store/presentation/widgets/inventory_section.dart';
+import 'package:pracby_mobile/features/store/presentation/widgets/store_widgets.dart';
 
 class StoreScreen extends ConsumerWidget {
   const StoreScreen({super.key});
@@ -20,75 +22,90 @@ class StoreScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(storeItemsProvider);
-    final effectsAsync = ref.watch(activeEffectsProvider);
+    final effects = ref.watch(activeEffectsProvider).valueOrNull ?? [];
+    final unlimitedEnergy = ref.watch(unlimitedEnergyProvider);
     final user = ref.watch(authStateProvider).valueOrNull;
     final guest = ref.watch(guestProvider);
     final isGuest = user == null;
     final acorns = user?.acorns ?? guest.acornBalance;
+    final energyFull = ref.watch(energyStatusProvider).isFull;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mağaza'),
-        actions: [
-          Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const PbIcon(PbIcons.acorn, size: 22),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$acorns',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
+    final items = itemsAsync.valueOrNull ?? const <StoreItem>[];
+    final regularItems = items
+        .where((i) => i.category != 'energy_refill')
+        .toList();
+    final energyItems = items
+        .where((i) => i.category == 'energy_refill')
+        .toList();
+
+    Widget itemCard(StoreItem item, {bool dimmed = false}) => _StoreItemCard(
+      item: item,
+      dimmed: dimmed,
+      // Guests can only buy energy, with local acorns.
+      onPurchase: (!dimmed && acorns >= item.price)
+          ? () => _handlePurchase(context, ref, item)
+          : null,
+    );
+
+    // Web store.vue: sections 28px apart (gap-7) in a 600px column.
+    final sections = <Widget>[
+      const _Heading(),
+      StoreSection(
+        title: 'Ürünler',
+        children: [
+          if (isGuest) ...[_GuestBanner(acorns), const SizedBox(height: 12)],
+          itemsAsync.when(
+            loading: () => const StoreHint('Yükleniyor…'),
+            error: (error, _) => StoreHint('Hata: $error'),
+            data: (_) => StoreList(
+              children: [
+                for (final item in regularItems)
+                  itemCard(item, dimmed: isGuest),
+              ],
             ),
+          ),
         ],
       ),
-      body: itemsAsync.when(
-        loading: () => const PbLoading(),
-        error: (error, _) => Center(child: Text('Hata: $error')),
-        data: (items) {
-          final effects = effectsAsync.valueOrNull ?? [];
-
-          return CustomScrollView(
-            slivers: [
-              if (isGuest) SliverToBoxAdapter(child: _GuestBanner(acorns)),
-              if (effects.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: ActiveEffectsSection(effects: effects),
-                ),
-              if (!isGuest)
-                const SliverToBoxAdapter(child: InventorySection()),
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverGrid(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _StoreItemCard(
-                      item: items[index],
-                      userAcorns: acorns,
-                      // Guests can only buy energy, with local acorns.
-                      enabled: !isGuest ||
-                          items[index].category == 'energy_refill',
-                      onPurchase: () => _handlePurchase(context, ref, items[index]),
-                    ),
-                    childCount: items.length,
-                  ),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.75,
-                  ),
-                ),
+      if (energyItems.isNotEmpty)
+        StoreSection(
+          icon: PbIcons.energy,
+          title: 'Enerji Doldur',
+          children: [
+            if (unlimitedEnergy)
+              const _UnlimitedEnergyBanner()
+            else
+              StoreList(
+                children: [
+                  for (final item in energyItems)
+                    // A refill can't add anything to full energy.
+                    energyFull
+                        ? _StoreItemCard(
+                            item: item,
+                            onPurchase: null,
+                            energyFull: true,
+                          )
+                        : itemCard(item),
+                ],
               ),
-            ],
-          );
-        },
+          ],
+        ),
+      if (effects.isNotEmpty) ActiveEffectsSection(effects: effects),
+      if (!isGuest) const InventorySection(),
+      if (!isGuest) const _AcornPackagesSection(),
+    ];
+
+    return Scaffold(
+      appBar: const StatusTopBar(),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 40),
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: StoreList(gap: 28, children: sections),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -112,9 +129,10 @@ class StoreScreen extends ConsumerWidget {
       return;
     }
 
-    final confirmed = await showModalBottomSheet<bool>(
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _PurchaseConfirmSheet(item: item),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (ctx) => _PurchaseDialog(item: item),
     );
 
     if (confirmed ?? false) {
@@ -126,7 +144,8 @@ class StoreScreen extends ConsumerWidget {
         if (!await _purchaseOnline(ref, user.id, item)) {
           // Energy works offline (docs 7.5.1): paid locally and queued.
           // Balance was checked above, so this only fails on a race.
-          final ok = item.category == 'energy_refill' &&
+          final ok =
+              item.category == 'energy_refill' &&
               await ref.read(authStateProvider.notifier).buyEnergyOffline(item);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -167,6 +186,7 @@ class StoreScreen extends ConsumerWidget {
       }
     }
   }
+
   /// Buys [item] on the server. Returns false without buying when offline or
   /// when energy can't go first because earlier actions are still queued
   /// (keeps the server's order of events). Other errors are rethrown.
@@ -202,6 +222,32 @@ class StoreScreen extends ConsumerWidget {
   }
 }
 
+/// "Market" page heading (web `text-2xl font-black`).
+class _Heading extends StatelessWidget {
+  const _Heading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          PbIcon(PbIcons.acorn, size: 29),
+          SizedBox(width: 6),
+          Text(
+            'Market',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: AppColors.grey800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Web store.vue guest banner.
 class _GuestBanner extends StatelessWidget {
   const _GuestBanner(this.acorns);
@@ -211,19 +257,15 @@ class _GuestBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.05),
+        color: storeAmber50,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.2),
-          width: 2,
-        ),
+        border: Border.all(color: storeAmber200, width: 2),
       ),
       child: Row(
         children: [
-          const PbIcon(PbIcons.acorn, size: 28),
+          const PbIcon(PbIcons.acorn, size: 29),
           const SizedBox(width: 12),
           Expanded(
             child: Text.rich(
@@ -232,31 +274,29 @@ class _GuestBanner extends StatelessWidget {
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.grey800,
+                  height: 1.375,
                 ),
                 children: [
                   TextSpan(
-                    text: '$acorns palamut kazandın! ',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    text: '$acorns palamut kazandın!',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const TextSpan(
-                    text: 'Mağazada harcamak için bir profil oluştur!',
+                    text: ' Mağazada harcamak için bir profil oluştur!',
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(
+          const SizedBox(width: 12),
+          StorePrimaryButton(
             onPressed: () => context.push(Routes.register),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(0, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              textStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            edge: 3,
+            child: const Text(
+              'Profil Oluştur',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
-            child: const Text('Profil Oluştur'),
           ),
         ],
       ),
@@ -264,88 +304,151 @@ class _GuestBanner extends StatelessWidget {
   }
 }
 
+/// A store item row: emoji, name, description, duration and price button.
 class _StoreItemCard extends StatelessWidget {
   const _StoreItemCard({
     required this.item,
-    required this.userAcorns,
     required this.onPurchase,
-    this.enabled = true,
+    this.dimmed = false,
+    this.energyFull = false,
   });
 
   final StoreItem item;
-  final int userAcorns;
-  final VoidCallback onPurchase;
-  final bool enabled;
+
+  /// An energy refill while energy is full: a grey "Enerji dolu" button.
+  final bool energyFull;
+
+  /// Null when the item can't be bought (too few acorns, or a guest).
+  final VoidCallback? onPurchase;
+
+  /// Members-only items fade out for guests.
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
-    final canAfford = userAcorns >= item.price;
-
+    final hours = item.durationHours;
     return Opacity(
-      opacity: enabled ? 1 : 0.4,
-      child: IgnorePointer(
-        ignoring: !enabled,
-        child: _card(canAfford),
+      opacity: dimmed ? 0.5 : 1,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.grey200, width: 2),
+        ),
+        child: Row(
+          children: [
+            StoreItemIcon(
+              iconUrl: item.iconUrl,
+              itemType: item.category,
+              size: 30,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.grey800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.description,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.grey400,
+                    ),
+                  ),
+                  if (hours != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule,
+                          size: 12,
+                          color: AppColors.grey400,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${hours}s süre',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.grey400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            if (energyFull)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.grey50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.grey200, width: 2),
+                ),
+                child: const Text(
+                  'Enerji dolu',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.grey400,
+                  ),
+                ),
+              )
+            else
+              AcornButton(
+                onPressed: onPurchase,
+                child: AcornAmount(item.price, fontSize: 14),
+              ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _card(bool canAfford) {
+/// Shown instead of the energy items while unlimited energy runs.
+class _UnlimitedEnergyBanner extends StatelessWidget {
+  const _UnlimitedEnergyBanner();
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.grey200),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.3),
+          width: 2,
+        ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: const Row(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: _getItemColor(item.category).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: PbIcon(_getItemIcon(item.category), size: 32),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            item.name,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            item.description,
-            style: const TextStyle(fontSize: 11, color: AppColors.grey500),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: onPurchase,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: canAfford ? AppColors.primary : AppColors.grey300,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const PbIcon(PbIcons.acorn, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${item.price}',
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+          PbIcon(PbIcons.energyInfinite), // 24px, text-xl at 1.2em
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Sınırsız enerji aktif — enerji doldurmanıza gerek yok!',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.success,
               ),
             ),
           ),
@@ -353,71 +456,176 @@ class _StoreItemCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  PbIcons _getItemIcon(String category) {
-    return switch (category) {
-      'streak_freeze' => PbIcons.freeze,
-      'unlimited_energy' => PbIcons.energyInfinite,
-      'xp_boost' => PbIcons.xp,
-      'energy_refill' => PbIcons.energy,
-      _ => PbIcons.gift,
-    };
+/// "Buy Acorn": acorn packages in two columns. Payment isn't built yet;
+/// the web shows the same notice.
+class _AcornPackagesSection extends ConsumerWidget {
+  const _AcornPackagesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final packages = ref.watch(acornPackagesProvider).valueOrNull ?? [];
+    return StoreSection(
+      icon: PbIcons.acorn,
+      title: 'Buy Acorn',
+      children: [
+        StoreList(
+          gap: 12,
+          children: [
+            for (var i = 0; i < packages.length; i += 2)
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _packageCard(context, packages[i])),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: i + 1 < packages.length
+                          ? _packageCard(context, packages[i + 1])
+                          : const SizedBox(),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 
-  Color _getItemColor(String category) {
-    return switch (category) {
-      'streak_freeze' => const Color(0xFF3B82F6),
-      'unlimited_energy' => const Color(0xFF22C55E),
-      'xp_boost' => AppColors.accent,
-      'energy_refill' => const Color(0xFF22C55E),
-      _ => AppColors.primary,
-    };
+  Widget _packageCard(BuildContext context, AcornPackage pkg) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.grey200, width: 2),
+      ),
+      child: Column(
+        children: [
+          AcornAmount(pkg.amount, fontSize: 20, fontWeight: FontWeight.w900),
+          const SizedBox(height: 8),
+          Text(
+            pkg.label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.grey400,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: AcornButton(
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Payment system coming soon!')),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: const Text(
+                'Satın Al',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _PurchaseConfirmSheet extends StatelessWidget {
-  const _PurchaseConfirmSheet({required this.item});
+/// Purchase confirmation, like the web's purchase modal.
+class _PurchaseDialog extends StatelessWidget {
+  const _PurchaseDialog({required this.item});
 
   final StoreItem item;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+    return Dialog(
+      backgroundColor: AppColors.white,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: const BorderSide(color: AppColors.grey200, width: 2),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Satın Al',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 16),
-          Text('${item.name} için ${item.price} palamut harcamak istiyor musun?'),
-          const SizedBox(height: 24),
-          Row(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('İptal'),
+              StoreItemIcon(
+                iconUrl: item.iconUrl,
+                itemType: item.category,
+                size: 48,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                item.name,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.grey800,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
+              const SizedBox(height: 12),
+              Text(
+                item.description,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.grey400,
+                ),
+              ),
+              const SizedBox(height: 12),
+              AcornAmount(
+                item.price,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: StorePrimaryButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Satın Al'),
+                  child: const Text(
+                    'Satın Al',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppColors.white,
+                    foregroundColor: AppColors.grey400,
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    side: const BorderSide(color: AppColors.grey200, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('İptal'),
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/api/api_exception.dart';
-import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
-import 'package:pracby_mobile/features/profile/data/user_repository.dart';
-import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
+import 'package:pracby_mobile/features/profile/presentation/widgets/enrollment_dialogs.dart';
+import 'package:pracby_mobile/features/profile/presentation/widgets/profile_ui.dart';
 
-/// "Kayıtlı Sınavlar" (web profile "Kayıtlı Sınavlarım"): the active exam is
-/// marked, others can be switched to or removed. The last exam can't be
-/// removed; progress is kept when an exam is removed.
+/// Web profile "Kayıtlı Sınavlarım" list: the active exam is marked, others
+/// can be switched to or removed, and "+ Sınav Ekle" opens the add dialog.
+/// The last exam can't be removed; progress is kept when an exam is removed.
 class EnrollmentList extends ConsumerStatefulWidget {
   const EnrollmentList({required this.enrollments, super.key});
 
@@ -22,73 +20,29 @@ class EnrollmentList extends ConsumerStatefulWidget {
 }
 
 class _EnrollmentListState extends ConsumerState<EnrollmentList> {
-  /// The exam a switch / remove request is running for.
+  /// The exam a switch request is running for.
   String? _busyId;
 
-  void _showError(ApiException e, String offlineMessage) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.isNetworkError ? offlineMessage : e.message),
-        backgroundColor: AppColors.error,
-      ),
-    );
-  }
-
-  Future<void> _run(String examTypeId, Future<void> Function() action) async {
-    setState(() => _busyId = examTypeId);
-    try {
-      await action();
-    } finally {
-      if (mounted) setState(() => _busyId = null);
-    }
-  }
-
-  Future<void> _switch(EnrollmentModel e) => _run(e.examTypeId, () async {
+  Future<void> _switch(EnrollmentModel e) async {
+    setState(() => _busyId = e.examTypeId);
     try {
       await ref.read(authStateProvider.notifier).setActiveExam(e.examTypeId);
     } on ApiException catch (err) {
-      _showError(err, 'Sınav değiştirmek için internet bağlantısı gerekli.');
-    }
-  });
-
-  Future<void> _remove(EnrollmentModel e) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sınavı Kaldır'),
-        content: Text(
-          '${e.examTypeName} kayıtlı sınavlarından kaldırılsın mı? '
-          'İlerlemen korunur, istediğin zaman yeniden ekleyebilirsin.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              err.isNetworkError
+                  ? 'Sınav değiştirmek için internet bağlantısı gerekli.'
+                  : err.message,
+            ),
+            backgroundColor: AppColors.error,
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Kaldır'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    await _run(e.examTypeId, () async {
-      try {
-        final newActive = await ref
-            .read(userRepositoryProvider)
-            .removeEnrollment(e.examTypeId);
-        if (newActive != null) {
-          ref.read(authStateProvider.notifier).activeExamChanged(newActive);
-        }
-        ref.invalidate(enrollmentsProvider);
-      } on ApiException catch (err) {
-        _showError(err, 'Sınav kaldırmak için internet bağlantısı gerekli.');
+        );
       }
-    });
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
   }
 
   @override
@@ -100,33 +54,9 @@ class _EnrollmentListState extends ConsumerState<EnrollmentList> {
     final canRemove = enrollments.length > 1;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Kayıtlı Sınavlar',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            TextButton.icon(
-              onPressed: () => context.push(Routes.examSelect),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Sınav Ekle'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        for (final e in enrollments)
+        for (final e in enrollments) ...[
           _EnrollmentTile(
             enrollment: e,
             isActive: e.examTypeId == activeId,
@@ -135,8 +65,11 @@ class _EnrollmentListState extends ConsumerState<EnrollmentList> {
             enabled: _busyId == null,
             canRemove: canRemove,
             onSwitch: () => _switch(e),
-            onRemove: () => _remove(e),
+            onRemove: () => showRemoveEnrollmentDialog(context, e.examTypeId),
           ),
+          const SizedBox(height: 10),
+        ],
+        const _AddButton(),
       ],
     );
   }
@@ -163,18 +96,18 @@ class _EnrollmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final removable = enabled && canRemove && !isBusy;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(16, 10, 6, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isActive ? AppColors.primary : AppColors.grey200,
-          width: isActive ? 2 : 1,
+          width: 2,
         ),
         color: isActive
             ? AppColors.primary.withValues(alpha: 0.05)
-            : AppColors.grey50,
+            : Colors.white,
       ),
       child: Row(
         children: [
@@ -183,20 +116,21 @@ class _EnrollmentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  enrollment.examGroupName.toUpperCase(),
+                  trUpper(enrollment.examGroupName),
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
+                    height: 16 / 12,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.3,
                     color: AppColors.grey400,
                   ),
                 ),
-                const SizedBox(height: 2),
                 Text(
                   enrollment.examTypeName,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w800,
                     fontSize: 14,
+                    height: 20 / 14,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.grey800,
                   ),
                 ),
@@ -214,48 +148,122 @@ class _EnrollmentTile extends StatelessWidget {
             )
           else if (isActive)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.successSurface,
+                color: AppColors.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: const Text(
                 'Aktif',
                 style: TextStyle(
                   fontSize: 12,
+                  height: 16 / 12,
                   fontWeight: FontWeight.w700,
                   color: AppColors.success,
                 ),
               ),
             )
           else
-            OutlinedButton(
-              onPressed: enabled ? onSwitch : null,
-              // The theme's minimumSize is full width; inside this Row that
-              // squeezed the exam name to a column of letters and pushed the
-              // button off-screen.
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary, width: 1.5),
-                minimumSize: const Size(56, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                visualDensity: VisualDensity.compact,
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+            _SwitchButton(onPressed: enabled ? onSwitch : null),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: canRemove
+                ? 'Sınavı kaldır'
+                : 'Son kayıtlı sınavınızı silemezsiniz',
+            child: GestureDetector(
+              onTap: removable ? onRemove : null,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: canRemove ? AppColors.grey200 : AppColors.grey100,
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.close,
+                  size: 14,
+                  color: canRemove ? AppColors.grey400 : AppColors.grey300,
                 ),
               ),
-              child: const Text('Geç'),
             ),
-          IconButton(
-            tooltip: canRemove
-                ? 'Sınavı kaldır'
-                : 'Son kayıtlı sınavını kaldıramazsın',
-            icon: const Icon(Icons.close, size: 20),
-            color: AppColors.grey400,
-            onPressed: enabled && canRemove && !isBusy ? onRemove : null,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Geç" (`bg-white text-primary text-xs font-bold px-3 py-1.5 rounded-xl
+/// border-2 border-primary`).
+class _SwitchButton extends StatelessWidget {
+  const _SwitchButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: const BorderSide(color: AppColors.primary, width: 2),
+    );
+    return Material(
+      color: Colors.white,
+      shape: shape,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: shape,
+        child: const Padding(
+          // px-3 py-1.5 plus the 2px border.
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Text(
+            'Geç',
+            style: TextStyle(
+              fontSize: 12,
+              height: 16 / 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "+ Sınav Ekle" (`bg-gray-50 border-2 border-dashed border-gray-300
+/// text-gray-400 font-bold text-sm py-3 rounded-2xl`).
+class _AddButton extends StatelessWidget {
+  const _AddButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return DashedBorder(
+      color: AppColors.grey300,
+      radius: 16,
+      child: Material(
+        color: AppColors.grey50,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => showEnrollDialog(context),
+          borderRadius: BorderRadius.circular(16),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Text(
+              '+ Sınav Ekle',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 20 / 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.grey400,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
