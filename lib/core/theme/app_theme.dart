@@ -1,8 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 
 abstract final class AppTheme {
+  /// Bundled in assets/fonts, the same Nunito weights the web loads.
+  static const _fontFamily = 'Nunito';
+
+  /// The web's weights: font-black headings, font-extrabold titles and
+  /// buttons, font-semibold text. Material's defaults (400–500) looked thin.
+  static const _textTheme = TextTheme(
+    displayLarge: TextStyle(fontWeight: FontWeight.w900),
+    displayMedium: TextStyle(fontWeight: FontWeight.w900),
+    displaySmall: TextStyle(fontWeight: FontWeight.w900),
+    headlineLarge: TextStyle(fontWeight: FontWeight.w900),
+    headlineMedium: TextStyle(fontWeight: FontWeight.w900),
+    headlineSmall: TextStyle(fontWeight: FontWeight.w900),
+    titleLarge: TextStyle(fontWeight: FontWeight.w800),
+    titleMedium: TextStyle(fontWeight: FontWeight.w800),
+    titleSmall: TextStyle(fontWeight: FontWeight.w700),
+    bodyLarge: TextStyle(fontWeight: FontWeight.w600),
+    bodyMedium: TextStyle(fontWeight: FontWeight.w600),
+    bodySmall: TextStyle(fontWeight: FontWeight.w600),
+    labelLarge: TextStyle(fontWeight: FontWeight.w800),
+    labelMedium: TextStyle(fontWeight: FontWeight.w700),
+    labelSmall: TextStyle(fontWeight: FontWeight.w700),
+  );
+
+  static const _buttonTextStyle = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: 16,
+    fontWeight: FontWeight.w800,
+  );
+
   static ThemeData get light {
     return ThemeData(
       useMaterial3: true,
@@ -15,7 +43,8 @@ abstract final class AppTheme {
         surface: AppColors.white,
       ),
       scaffoldBackgroundColor: AppColors.white,
-      textTheme: GoogleFonts.nunitoTextTheme(),
+      fontFamily: _fontFamily,
+      textTheme: _textTheme,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.white,
         foregroundColor: AppColors.black,
@@ -30,10 +59,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: _buttonTextStyle,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -44,10 +70,7 @@ abstract final class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           side: const BorderSide(color: AppColors.primary),
-          textStyle: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: _buttonTextStyle,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -98,7 +121,8 @@ abstract final class AppTheme {
         surface: AppColors.darkSurface,
       ),
       scaffoldBackgroundColor: AppColors.black,
-      textTheme: GoogleFonts.nunitoTextTheme(ThemeData.dark().textTheme),
+      fontFamily: _fontFamily,
+      textTheme: _textTheme,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.black,
         foregroundColor: AppColors.white,
@@ -113,10 +137,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: _buttonTextStyle,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -127,10 +148,7 @@ abstract final class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           side: const BorderSide(color: AppColors.primaryLight),
-          textStyle: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: _buttonTextStyle,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

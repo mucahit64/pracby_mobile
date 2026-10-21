@@ -20,7 +20,6 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   cached_network_image: ^3.3.1
   flutter_cache_manager: ^3.4.1
-  google_fonts: ^6.2.1
   flutter_animate: ^4.5.0
   flutter_card_swiper: ^7.0.1
   freezed_annotation: ^2.4.1
@@ -43,6 +42,18 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Regular.ttf
+        - asset: assets/fonts/Nunito-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Nunito-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Nunito-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Nunito-Black.ttf
+          weight: 900
   #         style: italic
   #   - family: Trajan Pro
   #     fonts:
