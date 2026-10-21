@@ -215,35 +215,33 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBarTheme(
-        // Compact bar: 60 instead of Material's 80, smaller icons and labels.
+        // Compact icon-only bar: 56 instead of Material's 80.
         data: NavigationBarThemeData(
-          height: 60,
-          iconTheme: const WidgetStatePropertyAll(IconThemeData(size: 22)),
-          labelTextStyle: const WidgetStatePropertyAll(
-            TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
+          height: 56,
           indicatorShape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: NavigationBar(
+          // Icons only; the labels stay for screen readers.
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
           selectedIndex: _calculateSelectedIndex(context),
           onDestinationSelected: (index) => _onItemTapped(index, context, ref),
           destinations: const [
             NavigationDestination(
-              icon: PbIcon(PbIcons.book, size: 26),
+              icon: PbIcon(PbIcons.book, size: 30),
               label: 'Ana Sayfa',
             ),
             NavigationDestination(
-              icon: PbIcon(PbIcons.trophy, size: 26),
+              icon: PbIcon(PbIcons.trophy, size: 30),
               label: 'Sıralama',
             ),
             NavigationDestination(
-              icon: PbIcon(PbIcons.acorn, size: 26),
+              icon: PbIcon(PbIcons.acorn, size: 30),
               label: 'Mağaza',
             ),
             NavigationDestination(
-              icon: PbIcon(PbIcons.profile, size: 26),
+              icon: PbIcon(PbIcons.profile, size: 30),
               label: 'Profil',
             ),
           ],

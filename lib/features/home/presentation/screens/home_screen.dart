@@ -14,6 +14,7 @@ import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/map_dialogs.dart';
+import 'package:pracby_mobile/features/home/presentation/widgets/map_selection_sheet.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/lesson_map_node.dart';
 import 'package:pracby_mobile/features/onboarding/data/exam_groups_repository.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/status_sheets.dart';
@@ -136,31 +137,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? courses.first.id
         : null;
 
-    Widget map({List<EnrollmentModel> enrollments = const []}) => Column(
-      children: [
-        if (enrollments.isNotEmpty)
-          _buildExamTabs(context, enrollments, activeExamId),
-        if (activeExamId != null && modules.isNotEmpty)
-          _buildModuleTabs(context, modules, activeModuleId),
-        if (courses.isNotEmpty) // Web shows it even for a single course.
-          _buildCourseTabs(context, courses, activeCourseIdValidated),
-        Expanded(
-          child: activeCourseIdValidated != null
-              ? _buildSingleCourseRoadmap(context, activeCourseIdValidated)
-              : activeExamId != null
-              ? _buildFilteredRoadmap(
-                  context,
-                  activeExamId,
-                  moduleId: activeModuleId,
-                )
-              : _buildRoadmapContent(context, user),
-        ),
-      ],
-    );
+    Widget map() => activeCourseIdValidated != null
+        ? _buildSingleCourseRoadmap(context, activeCourseIdValidated)
+        : activeExamId != null
+        ? _buildFilteredRoadmap(context, activeExamId, moduleId: activeModuleId)
+        : _buildRoadmapContent(context, user);
+
+    // The exam / module / course tab rows took too much of the screen; the
+    // top bar opens a picker instead.
+    final activeCourse = courses
+        .where((c) => c.id == activeCourseIdValidated)
+        .firstOrNull;
+    final selector = activeExamId == null || activeCourse == null
+        ? null
+        : _MapSelectorButton(
+            label: activeCourse.title,
+            onTap: () => _openMapSelection(
+              enrollments: enrolled,
+              examTypeId: activeExamId,
+              moduleId: activeModuleId,
+              courseId: activeCourse.id,
+            ),
+          );
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _buildTopBar(context, user),
+      appBar: _buildTopBar(context, user, selector: selector),
       body: isGuest
           ? map()
           : enrollmentsAsync.when(
@@ -170,20 +172,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               error: (e, _) => _buildRoadmapContent(context, user),
               data: (enrollments) => enrollments.isEmpty
                   ? _buildNoEnrollmentState(context)
-                  : map(enrollments: enrollments),
+                  : map(),
             ),
     );
   }
 
+  /// Applies a choice from the map picker. A new exam is saved first; if
+  /// that fails the map stays as it was.
+  Future<void> _openMapSelection({
+    required List<EnrollmentModel> enrollments,
+    required String examTypeId,
+    required String? moduleId,
+    required String courseId,
+  }) async {
+    final picked = await showMapSelectionSheet(
+      context,
+      enrollments: enrollments,
+      examTypeId: examTypeId,
+      moduleId: moduleId,
+      courseId: courseId,
+    );
+    if (picked == null || !mounted) return;
+    if (picked.examTypeId != examTypeId &&
+        !await _switchExam(picked.examTypeId)) {
+      return;
+    }
+    _select(moduleId: picked.moduleId, courseId: picked.courseId);
+  }
+
   /// Changing the exam clears the module / course (web `switchExam`).
-  Future<void> _switchExam(String examTypeId) async {
+  /// Returns false if it couldn't be saved.
+  Future<bool> _switchExam(String examTypeId) async {
     final messenger = ScaffoldMessenger.of(context);
     final previous = (module: _selectedModuleId, course: _selectedCourseId);
     _select(moduleId: null, courseId: null);
     try {
       await ref.read(authStateProvider.notifier).setActiveExam(examTypeId);
+      return true;
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _select(moduleId: previous.module, courseId: previous.course);
       messenger.showSnackBar(
         SnackBar(
@@ -194,10 +221,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       );
+      return false;
     }
   }
 
-  PreferredSizeWidget _buildTopBar(BuildContext context, UserModel? user) {
+  PreferredSizeWidget _buildTopBar(
+    BuildContext context,
+    UserModel? user, {
+    Widget? selector,
+  }) {
     final stats = ref.watch(userStatsProvider).valueOrNull;
     final guest = ref.watch(guestProvider);
     final energy = ref.watch(energyStatusProvider);
@@ -207,24 +239,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 1,
-      titleSpacing: 0,
+      titleSpacing: 12,
       title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: selector == null
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.spaceBetween,
         children: [
+          if (selector != null) ...[
+            Flexible(child: selector),
+            const SizedBox(width: 8),
+          ],
           _TopBarItem(
             icon: const PbIcon(PbIcons.fire, size: 22),
             label: '${stats?.displayStreak ?? 0}',
             tooltip: 'Seri',
             onTap: () => showStreakSheet(context),
           ),
-          const SizedBox(width: 12),
           _TopBarItem(
             icon: const PbIcon(PbIcons.acorn, size: 22),
             label: '$acorns',
             tooltip: 'Palamut',
             onTap: () => context.go(Routes.store),
           ),
-          const SizedBox(width: 12),
           _TopBarItem(
             icon: PbIcon(
               energy.unlimited ? PbIcons.energyInfinite : PbIcons.energy,
@@ -246,143 +282,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       // Notifications are hidden until the web client has them.
-    );
-  }
-
-  Widget _buildExamTabs(
-    BuildContext context,
-    List<EnrollmentModel> enrollments,
-    String? activeId,
-  ) {
-    return Container(
-      height: 48,
-      color: Colors.white,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: enrollments.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final e = enrollments[index];
-          final isSelected = e.examTypeId == activeId;
-          return GestureDetector(
-            onTap: () => _switchExam(e.examTypeId),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.grey300,
-                ),
-              ),
-              child: Text(
-                e.examTypeName,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : AppColors.grey600,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildModuleTabs(
-    BuildContext context,
-    List<ModuleModel> modules,
-    String? activeModuleId,
-  ) {
-    return Container(
-      height: 44,
-      decoration: const BoxDecoration(
-        color: AppColors.grey50,
-        border: Border(bottom: BorderSide(color: AppColors.grey200)),
-      ),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        itemCount: modules.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final m = modules[index];
-          final isSelected = m.id == activeModuleId;
-          return GestureDetector(
-            onTap: () => _select(moduleId: m.id, courseId: null),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.grey300,
-                ),
-              ),
-              child: Text(
-                m.name,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected ? Colors.white : AppColors.grey600,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildCourseTabs(
-    BuildContext context,
-    List<CourseModel> courses,
-    String? activeCourseId,
-  ) {
-    return Container(
-      height: 44,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.grey100)),
-      ),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        itemCount: courses.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final c = courses[index];
-          final isSelected = c.id == activeCourseId;
-          return GestureDetector(
-            onTap: () => _select(moduleId: _selectedModuleId, courseId: c.id),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary.withValues(alpha: 0.1)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.grey200,
-                ),
-              ),
-              child: Text(
-                c.title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? AppColors.primary : AppColors.grey600,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -764,7 +663,7 @@ class _TopBarItem extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   fontSize: 16,
                   color: AppColors.grey800,
                 ),
@@ -800,6 +699,51 @@ class _CountdownChip extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: Colors.white,
           fontFeatures: [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
+}
+
+/// The course shown on the map; opens the exam / module / course picker.
+class _MapSelectorButton extends StatelessWidget {
+  const _MapSelectorButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.grey100,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.grey800,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.expand_more,
+                size: 22,
+                color: AppColors.grey500,
+              ),
+            ],
+          ),
         ),
       ),
     );
