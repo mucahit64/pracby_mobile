@@ -579,6 +579,11 @@ class QuizController extends StateNotifier<QuizState> {
     final answers = List<QuizAnswer>.of(_localAnswers);
     _localAnswers.clear();
     if (sessionId != null && !_isGuest) {
+      // Show the spent energy on the map at once; the refresh after the
+      // answers are sent confirms it.
+      if (!state.unlimitedEnergy) {
+        _ref.read(authStateProvider.notifier).setBalances(energy: state.energy);
+      }
       unawaited(_closeSession(sessionId, answers, energy: state.energy));
     }
     state = state.copyWith(dialog: QuizDialog.none, exitRequested: true);
