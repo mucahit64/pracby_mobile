@@ -48,11 +48,16 @@ class MapNode {
 /// Lessons and chests form one sequence: completed steps, then the first
 /// unfinished one is active, the rest locked. A boss node closes the topic
 /// and is active only when every step is completed.
-List<MapNode> buildLessonNodes(TopicModel topic) {
+List<MapNode> buildLessonNodes(
+  TopicModel topic, {
+  Set<String> openedChests = const {},
+}) {
   final nodes = <MapNode>[];
   var foundActive = false;
   for (final step in topic.steps) {
-    final completed = step.progress?.isStepCompleted ?? false;
+    final completed =
+        (step.progress?.isStepCompleted ?? false) ||
+        openedChests.contains(step.id);
     final MapNodeStatus status;
     if (completed) {
       status = MapNodeStatus.completed;
@@ -75,7 +80,8 @@ List<MapNode> buildLessonNodes(TopicModel topic) {
   }
   if (topic.steps.isNotEmpty) {
     final allDone = topic.steps.every(
-      (s) => s.progress?.isStepCompleted ?? false,
+      (s) =>
+          (s.progress?.isStepCompleted ?? false) || openedChests.contains(s.id),
     );
     nodes.add(
       MapNode(

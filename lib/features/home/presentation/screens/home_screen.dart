@@ -605,23 +605,30 @@ class _CourseRoadmapSection extends ConsumerWidget {
     TopicColor color,
     String courseId,
   ) {
-    final nodes = buildLessonNodes(topic);
+    final nodes = buildLessonNodes(
+      topic,
+      openedChests: ref.watch(openedChestsProvider),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         children: [
           for (final (i, node) in nodes.indexed)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Transform.translate(
-                offset: Offset(nodeOffset(i), 0),
-                child: MapNodeView(
-                  node: node,
-                  topicColor: color,
-                  onTap: _isTappable(node)
-                      ? () => _onNodeTap(context, ref, topic, node, courseId)
-                      : null,
-                ),
+              // Shift by layout, not Transform.translate: a translated node
+              // only took taps where it still overlapped its unshifted box,
+              // so the right side of the button did nothing.
+              padding: EdgeInsets.only(
+                top: 16,
+                bottom: 16,
+                left: nodeOffset(i) * 2,
+              ),
+              child: MapNodeView(
+                node: node,
+                topicColor: color,
+                onTap: _isTappable(node)
+                    ? () => _onNodeTap(context, ref, topic, node, courseId)
+                    : null,
               ),
             ),
         ],
@@ -653,8 +660,14 @@ class _CourseRoadmapSection extends ConsumerWidget {
         return;
       }
     } on ApiException catch (e) {
-      // Rejected by the server: silently ignored, like the web client.
-      if (!e.isNetworkError) return;
+      // Rejected by the server: silently ignored, like the web client. The
+      // chest shows closed again.
+      if (!e.isNetworkError) {
+        ref
+            .read(openedChestsProvider.notifier)
+            .update((ids) => {...ids}..remove(step.id));
+        return;
+      }
     }
     await queue.enqueueClaim(userId: user.id, stepId: step.id);
     auth.setBalances(acorns: user.acorns + acornReward);
@@ -680,6 +693,11 @@ class _CourseRoadmapSection extends ConsumerWidget {
       final amount = step.rewardAmount ?? 10;
       final claim = await showRewardStepDialog(context, rewardAmount: amount);
       if (!claim) return;
+      // Open the chest and unlock the next lesson now, not after the
+      // requests below.
+      ref
+          .read(openedChestsProvider.notifier)
+          .update((ids) => {...ids, step.id});
       if (ref.read(authStateProvider).valueOrNull == null) {
         // Guest: opened locally; the map re-renders from guest state.
         ref.read(guestProvider.notifier).claimReward(step.id, amount);

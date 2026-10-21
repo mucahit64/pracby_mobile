@@ -27,6 +27,15 @@ final modulesProvider =
   return ref.watch(courseRepositoryProvider).getModules(examTypeId);
 });
 
+/// Chests opened on this device that the map data may not show yet. The map
+/// shows them opened at once: waiting for the claim request and the map
+/// reload left the next lesson locked for a few seconds, so taps on it did
+/// nothing. Cleared when the user changes.
+final openedChestsProvider = StateProvider<Set<String>>((ref) {
+  ref.watch(authStateProvider.select((s) => s.valueOrNull?.id));
+  return const {};
+});
+
 /// Lesson map data. For guests the API sends no progress, so local results
 /// are overlaid (docs 10.6); it rebuilds when guest progress changes. A
 /// member's lessons and chests done offline are overlaid from the offline
