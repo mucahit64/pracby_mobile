@@ -36,6 +36,7 @@ dev_dependencies:
   json_serializable: ^6.8.0
   riverpod_generator: ^2.4.0
   very_good_analysis: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -48,3 +49,16 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  image_path: "assets/brand/p-icon.png"
+  android: true
+  adaptive_icon_background: "#7c3aed"
+  adaptive_icon_foreground: "assets/brand/p-icon-foreground.png"
+  adaptive_icon_monochrome: "assets/brand/p-icon-foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    background_color: "#ffffff"
+    theme_color: "#7c3aed"
