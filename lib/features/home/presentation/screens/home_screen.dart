@@ -6,6 +6,7 @@ import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/storage/hive_storage.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/countdown.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -211,27 +212,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _TopBarItem(
-            icon: const Icon(
-              Icons.local_fire_department,
-              color: Color(0xFFEF4444),
-              size: 22,
-            ),
+            icon: const PbIcon(PbIcons.fire, size: 22),
             label: '${stats?.displayStreak ?? 0}',
             tooltip: 'Seri',
             onTap: () => showStreakSheet(context),
           ),
           const SizedBox(width: 12),
           _TopBarItem(
-            icon: const Icon(Icons.eco, color: AppColors.accent, size: 22),
+            icon: const PbIcon(PbIcons.acorn, size: 22),
             label: '$acorns',
             tooltip: 'Palamut',
             onTap: () => context.go(Routes.store),
           ),
           const SizedBox(width: 12),
           _TopBarItem(
-            icon: const Icon(
-              Icons.battery_charging_full,
-              color: Color(0xFF22C55E),
+            icon: PbIcon(
+              energy.unlimited ? PbIcons.energyInfinite : PbIcons.energy,
               size: 22,
             ),
             label: energy.unlimited ? '∞' : '${energy.count}',
@@ -441,7 +437,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('📚', style: TextStyle(fontSize: 48)),
+            PbIcon(PbIcons.book, size: 56),
             SizedBox(height: 16),
             Text(
               'Bu sınav için henüz içerik eklenmedi.',

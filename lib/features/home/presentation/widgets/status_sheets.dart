@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/countdown.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
@@ -104,7 +105,7 @@ class _EnergySheet extends ConsumerWidget {
         if (energy.unlimited) ...[
           const Row(
             children: [
-              Icon(Icons.all_inclusive, color: AppColors.success, size: 32),
+              PbIcon(PbIcons.energyInfinite, size: 32),
               SizedBox(width: 8),
               Text(
                 'Sınırsız enerji aktif!',
@@ -121,10 +122,11 @@ class _EnergySheet extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              const Icon(
-                Icons.battery_charging_full,
-                color: Color(0xFF22C55E),
-                size: 28,
+              // SVGs have no text baseline; sit the icon on the number's.
+              const Baseline(
+                baseline: 26,
+                baselineType: TextBaseline.alphabetic,
+                child: PbIcon(PbIcons.energy, size: 28),
               ),
               const SizedBox(width: 6),
               Text(
@@ -248,10 +250,10 @@ class _StreakSheet extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            const Icon(
-              Icons.local_fire_department,
-              color: Color(0xFFEF4444),
-              size: 26,
+            const Baseline(
+              baseline: 24,
+              baselineType: TextBaseline.alphabetic,
+              child: PbIcon(PbIcons.fire, size: 26),
             ),
             const SizedBox(width: 6),
             Text(

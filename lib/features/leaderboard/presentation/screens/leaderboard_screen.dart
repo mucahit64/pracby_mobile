@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/leaderboard/data/models/leaderboard_entry.dart';
 import 'package:pracby_mobile/features/leaderboard/presentation/providers/leaderboard_provider.dart';
@@ -19,11 +20,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
 
   static const _leagues = ['bronze', 'silver', 'gold', 'diamond'];
   static const _leagueNames = ['Bronz', 'Gümüş', 'Altın', 'Elmas'];
-  static const _leagueColors = [
-    Color(0xFFCD7F32),
-    Color(0xFFC0C0C0),
-    Color(0xFFFFD700),
-    Color(0xFFB9F2FF),
+  static const _leagueIcons = [
+    PbIcons.medalBronze,
+    PbIcons.medalSilver,
+    PbIcons.medalGold,
+    PbIcons.diamond,
   ];
 
   @override
@@ -51,7 +52,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.emoji_events, color: _leagueColors[i], size: 18),
+                  PbIcon(_leagueIcons[i], size: 20),
                   const SizedBox(width: 4),
                   Text(_leagueNames[i]),
                 ],
@@ -147,14 +148,20 @@ class _RankEntryTile extends StatelessWidget {
         children: [
           SizedBox(
             width: 32,
-            child: Text(
-              '$position',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: _getRankColor(),
-              ),
-            ),
+            child: switch (position) {
+              1 => const PbIcon(PbIcons.medalGold),
+              2 => const PbIcon(PbIcons.medalSilver),
+              3 => const PbIcon(PbIcons.medalBronze),
+              _ => Text(
+                  '$position',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: AppColors.grey600,
+                  ),
+                ),
+            },
           ),
           const SizedBox(width: 12),
           CircleAvatar(
@@ -191,16 +198,5 @@ class _RankEntryTile extends StatelessWidget {
     );
   }
 
-  Color _getRankColor() {
-    switch (position) {
-      case 1:
-        return const Color(0xFFFFD700);
-      case 2:
-        return const Color(0xFFC0C0C0);
-      case 3:
-        return const Color(0xFFCD7F32);
-      default:
-        return AppColors.grey600;
-    }
-  }
+
 }

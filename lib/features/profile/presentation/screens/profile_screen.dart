@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/utils/level_progress.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/profile/data/models/streak_day.dart';
@@ -36,7 +37,7 @@ class ProfileScreen extends ConsumerWidget {
             onPressed: () => context.push(Routes.editProfile),
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const PbIcon(PbIcons.door),
             onPressed: () => ref.read(authStateProvider.notifier).logout(),
           ),
         ],
@@ -149,22 +150,19 @@ class ProfileScreen extends ConsumerWidget {
             _StatCard(
               label: 'Toplam XP',
               value: number.format(stats.totalXp),
-              icon: Icons.bolt,
-              iconColor: AppColors.accent,
+              icon: PbIcons.xp,
             ),
             const SizedBox(width: 8),
             _StatCard(
               label: 'Güncel Seri',
               value: '${stats.displayStreak}',
-              icon: Icons.local_fire_department,
-              iconColor: AppColors.error,
+              icon: PbIcons.fire,
             ),
             const SizedBox(width: 8),
             _StatCard(
               label: 'En Uzun Seri',
               value: '${stats.maxStreak}',
-              icon: Icons.emoji_events,
-              iconColor: const Color(0xFFD97706),
+              icon: PbIcons.trophy,
             ),
           ],
         ),
@@ -174,14 +172,13 @@ class ProfileScreen extends ConsumerWidget {
             _StatCard(
               label: 'Quiz',
               value: '${stats.quizzesDone}',
-              icon: Icons.track_changes,
+              icon: PbIcons.target,
             ),
             const SizedBox(width: 8),
             _StatCard(
               label: 'Acorn',
               value: number.format(acorns),
-              icon: Icons.eco,
-              iconColor: AppColors.acorn,
+              icon: PbIcons.acorn,
             ),
             const SizedBox(width: 8),
             const Expanded(child: SizedBox()),
@@ -213,7 +210,7 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Text('🔥', style: TextStyle(fontSize: 40)),
+              const PbIcon(PbIcons.fire, size: 44),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -349,14 +346,16 @@ class ProfileScreen extends ConsumerWidget {
           width: 32,
           height: 32,
           errorWidget: (_, __, ___) =>
-              const Icon(Icons.emoji_events, size: 26, color: AppColors.accent),
+              const PbIcon(PbIcons.medal, size: 28),
         ),
       );
     }
     // Treat as emoji or short text
     return Opacity(
       opacity: opacity,
-      child: Text(iconUrl ?? '🏅', style: const TextStyle(fontSize: 26)),
+      child: iconUrl == null
+          ? const PbIcon(PbIcons.medal, size: 28)
+          : Text(iconUrl, style: const TextStyle(fontSize: 26)),
     );
   }
 }
@@ -366,13 +365,11 @@ class _StatCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
-    this.iconColor = AppColors.primary,
   });
 
   final String label;
   final String value;
-  final IconData icon;
-  final Color iconColor;
+  final PbIcons icon;
 
   @override
   Widget build(BuildContext context) {
@@ -385,7 +382,7 @@ class _StatCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, color: iconColor, size: 22),
+            PbIcon(icon),
             const SizedBox(height: 6),
             Text(
               value,

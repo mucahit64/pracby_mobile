@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 
 /// Lesson-map nodes, mirroring the web client's `pages/index.vue`
@@ -195,23 +196,14 @@ class _MapNodeViewState extends State<MapNodeView> {
         child: CustomPaint(painter: _OpenedGiftPainter()),
       );
     }
-    // Material icons instead of the web's emoji (📝 🔒 🎁 ⚔️).
     final locked = n.status == MapNodeStatus.locked;
-    final (icon, color) = switch (n.type) {
-      MapNodeType.chest => (
-          Icons.card_giftcard,
-          locked ? const Color(0xFFFBBF24) : Colors.white,
-        ),
-      MapNodeType.boss => (
-          locked ? Icons.lock : Icons.shield,
-          locked ? AppColors.grey400 : Colors.white,
-        ),
-      MapNodeType.lesson => (
-          locked ? Icons.lock : Icons.menu_book_outlined,
-          locked ? AppColors.grey400 : Colors.white,
-        ),
+    final icon = switch (n.type) {
+      MapNodeType.chest => PbIcons.gift,
+      _ when locked => PbIcons.lock,
+      MapNodeType.boss => PbIcons.swords,
+      MapNodeType.lesson => PbIcons.test,
     };
-    return Icon(icon, size: 28, color: color);
+    return PbIcon(icon, size: 30);
   }
 
   @override

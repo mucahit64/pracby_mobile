@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -46,19 +47,19 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 48),
               _buildFeatureRow(
-                icon: Icons.bolt,
+                icon: PbIcons.xp,
                 color: AppColors.accent,
                 text: 'Günlük kısa quizlerle çalış',
               ),
               const SizedBox(height: 16),
               _buildFeatureRow(
-                icon: Icons.emoji_events,
+                icon: PbIcons.trophy,
                 color: AppColors.primary,
                 text: 'Sıralamada yarış, ödüller kazan',
               ),
               const SizedBox(height: 16),
               _buildFeatureRow(
-                icon: Icons.local_fire_department,
+                icon: PbIcons.fire,
                 color: AppColors.error,
                 text: "Streak'ini koru, motivasyonunu artır",
               ),
@@ -81,7 +82,7 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   Widget _buildFeatureRow({
-    required IconData icon,
+    required PbIcons icon,
     required Color color,
     required String text,
   }) {
@@ -94,7 +95,8 @@ class WelcomeScreen extends StatelessWidget {
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: color, size: 22),
+          alignment: Alignment.center,
+          child: PbIcon(icon),
         ),
         const SizedBox(width: 12),
         Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),

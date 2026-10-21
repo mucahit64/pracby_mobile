@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/quiz/presentation/providers/quiz_provider.dart';
 
 /// Quiz result, mirroring the "Quiz finished" block of the web quiz page.
@@ -33,15 +34,18 @@ class QuizResultScreen extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 420),
           child: Column(
             children: [
-              Text(
-                depleted ? '🔋' : (bossPassed ? '⚔️' : '🎊'),
-                style: const TextStyle(fontSize: 72, height: 1),
-              ),
+              if (depleted || bossPassed)
+                PbIcon(
+                  depleted ? PbIcons.energyEmpty : PbIcons.swords,
+                  size: 80,
+                )
+              else
+                const Text('🎊', style: TextStyle(fontSize: 72, height: 1)),
               const SizedBox(height: 20),
               Text(
                 depleted
-                    ? 'Enerjin Bitti! 🔋'
-                    : (bossPassed ? '⚔️ Boss Testi Geçildi!' : 'Tebrikler! 🎊'),
+                    ? 'Enerjin Bitti!'
+                    : (bossPassed ? 'Boss Testi Geçildi!' : 'Tebrikler! 🎊'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 24,
@@ -68,7 +72,11 @@ class QuizResultScreen extends StatelessWidget {
               ],
               if (state.topicCompleted) ...[
                 const SizedBox(height: 20),
-                _pill('🏆 Konu tamamlandı!', AppColors.warning),
+                _pill(
+                  'Konu tamamlandı!',
+                  AppColors.warning,
+                  icon: PbIcons.trophy,
+                ),
               ],
               if (state.pendingSync) ...[
                 const SizedBox(height: 20),
@@ -262,7 +270,7 @@ class QuizResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _pill(String text, Color color) {
+  Widget _pill(String text, Color color, {PbIcons? icon}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
@@ -270,9 +278,18 @@ class QuizResultScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
       ),
-      child: Text(
-        text,
-        style: TextStyle(fontWeight: FontWeight.w800, color: color),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            PbIcon(icon, size: 18),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            text,
+            style: TextStyle(fontWeight: FontWeight.w800, color: color),
+          ),
+        ],
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/presentation/widgets/auth_close_button.dart';
 
@@ -79,7 +80,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.mark_email_read_outlined, size: 80, color: AppColors.success),
+        const PbIcon(PbIcons.mail, size: 80),
         const SizedBox(height: 24),
         Text(
           'E-posta gönderildi',

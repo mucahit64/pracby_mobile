@@ -36,7 +36,7 @@ void main() {
 
   group('effect labels and remaining time (web store.vue)', () {
     test('labels known effects in Turkish', () {
-      expect(effectLabel('unlimited_energy'), '🔋 Sınırsız Enerji');
+      expect(effectLabel('unlimited_energy'), 'Sınırsız Enerji');
       expect(effectLabel('unknown'), 'unknown');
     });
 

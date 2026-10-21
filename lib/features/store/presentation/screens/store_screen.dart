@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
@@ -34,7 +35,7 @@ class StoreScreen extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.eco, color: AppColors.accent, size: 20),
+                  const PbIcon(PbIcons.acorn, size: 22),
                   const SizedBox(width: 4),
                   Text(
                     '$acorns',
@@ -222,7 +223,7 @@ class _GuestBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text('🌰', style: TextStyle(fontSize: 24)),
+          const PbIcon(PbIcons.acorn, size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Text.rich(
@@ -305,11 +306,8 @@ class _StoreItemCard extends StatelessWidget {
               color: _getItemColor(item.category).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
-              _getItemIcon(item.category),
-              color: _getItemColor(item.category),
-              size: 28,
-            ),
+            alignment: Alignment.center,
+            child: PbIcon(_getItemIcon(item.category), size: 32),
           ),
           const SizedBox(height: 12),
           Text(
@@ -337,7 +335,7 @@ class _StoreItemCard extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.eco, color: AppColors.white, size: 14),
+                  const PbIcon(PbIcons.acorn, size: 16),
                   const SizedBox(width: 4),
                   Text(
                     '${item.price}',
@@ -356,13 +354,13 @@ class _StoreItemCard extends StatelessWidget {
     );
   }
 
-  IconData _getItemIcon(String category) {
+  PbIcons _getItemIcon(String category) {
     return switch (category) {
-      'streak_freeze' => Icons.ac_unit,
-      'unlimited_energy' => Icons.flash_on,
-      'xp_boost' => Icons.rocket_launch,
-      'energy_refill' => Icons.battery_charging_full,
-      _ => Icons.auto_awesome,
+      'streak_freeze' => PbIcons.freeze,
+      'unlimited_energy' => PbIcons.energyInfinite,
+      'xp_boost' => PbIcons.xp,
+      'energy_refill' => PbIcons.energy,
+      _ => PbIcons.gift,
     };
   }
 

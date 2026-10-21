@@ -7,6 +7,7 @@ import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/utils/html_utils.dart';
 import 'package:pracby_mobile/core/widgets/html_text.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 import 'package:pracby_mobile/features/quiz/data/models/question_model.dart';
@@ -320,13 +321,7 @@ class _TopBar extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           if (state.unlimitedEnergy)
-            const Text(
-              '♾️🔋',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: AppColors.success,
-              ),
-            )
+            const PbIcon(PbIcons.energyInfinite, size: 20)
           else
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -335,13 +330,20 @@ class _TopBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: const Color(0xFFFEE2E2)),
               ),
-              child: Text(
-                '🔋 ${state.energy}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.error,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const PbIcon(PbIcons.energy, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${state.energy}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -363,7 +365,8 @@ class _MetaRow extends StatelessWidget {
       children: [
         Flexible(
           child: _Pill(
-            text: '📚 ${question.examSource}',
+            icon: PbIcons.book,
+            text: question.examSource ?? '',
             color: const Color(0xFF2563EB),
             background: const Color(0xFFEFF6FF),
             border: const Color(0xFFDBEAFE),
@@ -380,8 +383,10 @@ class _Pill extends StatelessWidget {
     required this.color,
     required this.background,
     required this.border,
+    this.icon,
   });
 
+  final PbIcons? icon;
   final String text;
   final Color color;
   final Color background;
@@ -396,14 +401,25 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: border),
       ),
-      child: Text(
-        text,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            PbIcon(icon!, size: 14),
+            const SizedBox(width: 4),
+          ],
+          Flexible(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

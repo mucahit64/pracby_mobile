@@ -5,6 +5,7 @@ import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/presentation/availability_check.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -340,9 +341,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
     ),
-    Availability.available => const Icon(
-      Icons.check_circle,
-      color: AppColors.success,
+    Availability.available => const Padding(
+      padding: EdgeInsets.all(12),
+      child: PbIcon(PbIcons.check, size: 20),
     ),
     Availability.taken => const Icon(Icons.error, color: AppColors.error),
     Availability.idle || Availability.unknown => null,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 
 /// Lesson-map dialogs, mirroring the web client's `components/dialogs`
 /// (StepPreviewDialog, RewardStepDialog, EnergyOutDialog).
@@ -52,6 +53,7 @@ Widget _filledButton(
   String label,
   VoidCallback onPressed, {
   Color color = AppColors.primary,
+  PbIcons? icon,
 }) =>
     SizedBox(
       width: double.infinity,
@@ -65,13 +67,22 @@ Widget _filledButton(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.5,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              PbIcon(icon, size: 20),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -107,7 +118,7 @@ Future<bool> showStepPreviewDialog(BuildContext context) async {
     context: context,
     builder: (ctx) => _MapDialog(
       children: [
-        const Text('📝', style: TextStyle(fontSize: 36)),
+        const PbIcon(PbIcons.test, size: 44),
         const SizedBox(height: 6),
         _title('Teste Hazır mısın?'),
         const SizedBox(height: 14),
@@ -140,7 +151,7 @@ Future<bool> showRewardStepDialog(
             color: const Color(0xFFFFFBEB),
             border: Border.all(color: const Color(0xFFFCD34D), width: 4),
           ),
-          child: const Text('🎁', style: TextStyle(fontSize: 36)),
+          child: const PbIcon(PbIcons.gift, size: 44),
         ),
         const SizedBox(height: 16),
         _title('Tebrikler! 🎉'),
@@ -157,7 +168,7 @@ Future<bool> showRewardStepDialog(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('🌰', style: TextStyle(fontSize: 24)),
+              const PbIcon(PbIcons.acorn, size: 28),
               const SizedBox(width: 8),
               Text(
                 '+$rewardAmount',
@@ -189,19 +200,23 @@ Future<bool> showRewardStepDialog(
   return result ?? false;
 }
 
-/// "Enerjin Bitti!" on the map — returns true for "🛒 Markete Git".
+/// "Enerjin Bitti!" on the map — returns true for "Markete Git".
 Future<bool> showEnergyOutDialog(BuildContext context) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (ctx) => _MapDialog(
       children: [
-        const Text('🪫', style: TextStyle(fontSize: 36)),
+        const PbIcon(PbIcons.energyEmpty, size: 44),
         const SizedBox(height: 14),
         _title('Enerjin Bitti!'),
         const SizedBox(height: 14),
         _subtitle('Enerjinin yenilenmesini bekle veya marketten satın al.'),
         const SizedBox(height: 18),
-        _filledButton('🛒 Markete Git', () => Navigator.pop(ctx, true)),
+        _filledButton(
+          'Markete Git',
+          () => Navigator.pop(ctx, true),
+          icon: PbIcons.cart,
+        ),
         const SizedBox(height: 10),
         _outlinedButton('Kapat', () => Navigator.pop(ctx, false)),
       ],

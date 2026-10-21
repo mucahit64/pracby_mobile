@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 
 /// Dimmed backdrop with a card that slides up from the bottom, like the web
@@ -81,7 +82,7 @@ class EnergyEmptySheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('🪫', style: TextStyle(fontSize: 48)),
+          const PbIcon(PbIcons.energyEmpty, size: 56),
           const SizedBox(height: 14),
           const Text(
             'Enerjin Bitti!',
@@ -112,7 +113,7 @@ class EnergyEmptySheet extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('🌰', style: TextStyle(fontSize: 18)),
+                const PbIcon(PbIcons.acorn, size: 22),
                 const SizedBox(width: 8),
                 Text(
                   '$acornBalance',
@@ -206,10 +207,10 @@ class EnergyEmptySheet extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Text(
-                    pkg.iconUrl ?? '🔋',
-                    style: const TextStyle(fontSize: 24),
-                  ),
+                  if (pkg.iconUrl case final iconUrl?)
+                    Text(iconUrl, style: const TextStyle(fontSize: 24))
+                  else
+                    const PbIcon(PbIcons.energy, size: 28),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
@@ -237,12 +238,19 @@ class EnergyEmptySheet extends StatelessWidget {
                             height: 14,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(
-                            '🌰 ${pkg.price}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.acorn,
-                            ),
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const PbIcon(PbIcons.acorn, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${pkg.price}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.acorn,
+                                ),
+                              ),
+                            ],
                           ),
                   ),
                 ],
@@ -273,7 +281,7 @@ class ExitWarningSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('⚠️', style: TextStyle(fontSize: 48)),
+          const PbIcon(PbIcons.warning, size: 56),
           const SizedBox(height: 14),
           const Text(
             'Bekle!',
@@ -323,9 +331,16 @@ class ExitWarningSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text(
-                '🚪 Testten Çık',
-                style: TextStyle(fontWeight: FontWeight.w800),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PbIcon(PbIcons.door, size: 18),
+                  SizedBox(width: 6),
+                  Text(
+                    'Testten Çık',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
               ),
             ),
           ),

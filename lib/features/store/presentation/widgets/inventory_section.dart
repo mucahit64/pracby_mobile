@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/store/data/models/inventory_item.dart';
 import 'package:pracby_mobile/features/store/data/models/store_item.dart';
 import 'package:pracby_mobile/features/store/data/store_repository.dart';
@@ -9,10 +10,17 @@ import 'package:pracby_mobile/features/store/presentation/providers/store_provid
 
 /// Effect names, same as the web store (`effectLabel`).
 String effectLabel(String itemType) => switch (itemType) {
-  'streak_freeze' => '🧊 Seri Dondurma',
-  'unlimited_energy' => '🔋 Sınırsız Enerji',
-  'xp_boost' => '⚡ XP Boost',
+  'streak_freeze' => 'Seri Dondurma',
+  'unlimited_energy' => 'Sınırsız Enerji',
+  'xp_boost' => 'XP Boost',
   _ => itemType,
+};
+
+PbIcons? _effectIcon(String itemType) => switch (itemType) {
+  'streak_freeze' => PbIcons.freeze,
+  'unlimited_energy' => PbIcons.energyInfinite,
+  'xp_boost' => PbIcons.xp,
+  _ => null,
 };
 
 /// Time left until [expiresAt], e.g. "7s 42dk" or "15dk".
@@ -38,12 +46,22 @@ class ActiveEffectsSection extends StatelessWidget {
         for (final effect in effects)
           _Row(
             highlighted: true,
-            leading: Text(
-              effectLabel(effect.itemType),
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: AppColors.grey800,
-              ),
+            leading: Row(
+              children: [
+                if (_effectIcon(effect.itemType) case final icon?) ...[
+                  PbIcon(icon, size: 20),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    effectLabel(effect.itemType),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.grey800,
+                    ),
+                  ),
+                ),
+              ],
             ),
             trailing: Text(
               '${formatRemaining(effect.expiresAt)} kaldı',

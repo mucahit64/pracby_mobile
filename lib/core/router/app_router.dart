@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
+import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/auth/presentation/screens/forgot_password_screen.dart';
@@ -230,23 +231,19 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
           onDestinationSelected: (index) => _onItemTapped(index, context, ref),
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map),
+              icon: PbIcon(PbIcons.book, size: 26),
               label: 'Ana Sayfa',
             ),
             NavigationDestination(
-              icon: Icon(Icons.emoji_events_outlined),
-              selectedIcon: Icon(Icons.emoji_events),
+              icon: PbIcon(PbIcons.trophy, size: 26),
               label: 'Sıralama',
             ),
             NavigationDestination(
-              icon: Icon(Icons.shopping_bag_outlined),
-              selectedIcon: Icon(Icons.shopping_bag),
+              icon: PbIcon(PbIcons.acorn, size: 26),
               label: 'Mağaza',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
+              icon: PbIcon(PbIcons.profile, size: 26),
               label: 'Profil',
             ),
           ],
