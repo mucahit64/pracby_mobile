@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
@@ -105,25 +106,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
+                // The app icon's P, inverted to stand out on purple.
+                SvgPicture.asset(
+                  'assets/brand/p-icon-inverse.svg',
                   width: 100,
                   height: 100,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Icon(
-                    Icons.school,
-                    size: 56,
-                    color: AppColors.primary,
-                  ),
                 ),
                 const SizedBox(height: 24),
+                // The web's wordmark: lowercase, black weight.
                 const Text(
-                  'Pracby',
+                  'pracby',
                   style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 40,
+                    fontWeight: FontWeight.w900,
                     color: AppColors.white,
                     letterSpacing: -0.5,
                   ),

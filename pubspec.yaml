@@ -42,6 +42,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    - assets/brand/p-icon-inverse.svg
   fonts:
     - family: Nunito
       fonts:
