@@ -17,7 +17,7 @@ class _RecordingApiClient implements ApiClient {
   }
 
   @override
-  Future<Response<T>> delete<T>(String path) async {
+  Future<Response<T>> delete<T>(String path, {Object? data}) async {
     this.path = path;
     return Response<T>(
       requestOptions: RequestOptions(path: path),

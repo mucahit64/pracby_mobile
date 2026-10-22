@@ -52,7 +52,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: Routes.splash,
     refreshListenable: notifier,
     redirect: (context, state) {
-      final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
+      final auth = ref.read(authStateProvider);
+      // Logging in or registering: the user isn't known yet and the guest
+      // data may already be cleared. Redirecting now would send every open
+      // page (the map too) to the login screen; wait for the result.
+      if (auth.isLoading) return null;
+      final isLoggedIn = auth.valueOrNull != null;
       final isGuest = !isLoggedIn && ref.read(guestProvider).isActive;
       final path = state.matchedLocation;
 
@@ -83,12 +88,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (path == Routes.resetPassword) return null;
 
       if (isLoggedIn) {
-        if (authRoutes.contains(path) ||
-            path == Routes.welcome ||
-            path == Routes.registerWall) {
-          return Routes.home;
-        }
-        return null;
+        // Login and register go home themselves (context.go) once the user
+        // is known. Redirecting them here instead turns a login page pushed
+        // over the tab shell (a guest's register wall, store…) into a second
+        // tab shell: duplicate GlobalKey and a blank screen.
+        return path == Routes.welcome ? Routes.home : null;
       }
 
       if (authRoutes.contains(path) ||

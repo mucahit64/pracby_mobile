@@ -372,7 +372,10 @@ class _CourseRoadmapSection extends ConsumerWidget {
         height: 80,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (e, _) => _MapLoadError(
+        error: e,
+        onRetry: () => ref.invalidate(courseFullProvider(course.id)),
+      ),
       data: (full) {
         if (full.topics.isEmpty) return const SizedBox.shrink();
         return Column(
@@ -596,14 +599,60 @@ class _MapSelectorButton extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(
-                Icons.expand_more,
-                size: 22,
-                color: AppColors.grey500,
-              ),
+              const Icon(Icons.expand_more, size: 22, color: AppColors.grey500),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown instead of an empty map when the lesson map can't be loaded.
+class _MapLoadError extends StatelessWidget {
+  const _MapLoadError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final offline =
+        error is ApiException && (error as ApiException).isNetworkError;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      child: Column(
+        children: [
+          const Text(
+            'Harita yüklenemedi',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.grey800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            offline
+                ? 'İnternet bağlantını kontrol edip tekrar dene.'
+                : 'Bir sorun oluştu. Tekrar dene; sorun sürerse bize bildir.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.grey500),
+          ),
+          if (!offline) ...[
+            const SizedBox(height: 8),
+            // Lets a user report what went wrong.
+            SelectableText(
+              error is ApiException
+                  ? (error as ApiException).message
+                  : '$error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: AppColors.grey400),
+            ),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
+        ],
       ),
     );
   }
