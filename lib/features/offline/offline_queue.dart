@@ -184,24 +184,30 @@ class OfflineQueue extends ChangeNotifier {
   /// the lesson map until the server has them (like guest progress, 10.6).
   CourseModel overlayProgress(CourseModel course, String userId) {
     final finished = <String, int>{}; // stepId -> best score
+    final finals = <String, int>{}; // topicId -> best boss score
     final claimed = <String>{};
     for (final e in _entries()) {
       final action = e.value;
       if (!_belongsTo(action, userId)) continue;
       final payload = action['payload'] as Map<String, dynamic>;
       if (action['type'] == _ActionType.finishQuiz.name &&
-          payload['skipRewards'] != true &&
-          payload['stepId'] != null) {
+          payload['skipRewards'] != true) {
         final total = (payload['totalQuestions'] as num?)?.toInt() ?? 0;
         final correct = (payload['correctCount'] as num?)?.toInt() ?? 0;
         final score = total > 0 ? (correct / total * 100).round() : 0;
-        final stepId = payload['stepId'] as String;
-        finished[stepId] = max(finished[stepId] ?? 0, score);
+        final stepId = payload['stepId'] as String?;
+        if (stepId != null) {
+          finished[stepId] = max(finished[stepId] ?? 0, score);
+        } else {
+          // Without a step it is the topic's final (the boss).
+          final topicId = payload['topicId'] as String;
+          finals[topicId] = max(finals[topicId] ?? 0, score);
+        }
       } else if (action['type'] == _ActionType.claimReward.name) {
         claimed.add(payload['stepId'] as String);
       }
     }
-    if (finished.isEmpty && claimed.isEmpty) return course;
+    if (finished.isEmpty && claimed.isEmpty && finals.isEmpty) return course;
 
     StepModel apply(StepModel step) {
       final score = finished[step.id];
@@ -224,10 +230,25 @@ class OfflineQueue extends ChangeNotifier {
       );
     }
 
+    UserTopicProgress? applyFinal(TopicModel topic) {
+      final score = finals[topic.id];
+      final current = topic.progress;
+      if (score == null) return current;
+      return (current ??
+              UserTopicProgress(id: '', userId: userId, topicId: topic.id))
+          .copyWith(
+            finalBestScore: max(current?.finalBestScore ?? 0, score),
+            finalCompletedAt: current?.finalCompletedAt ?? DateTime.now(),
+          );
+    }
+
     return course.copyWith(
       topics: [
         for (final topic in course.topics)
-          topic.copyWith(steps: [for (final s in topic.steps) apply(s)]),
+          topic.copyWith(
+            progress: applyFinal(topic),
+            steps: [for (final s in topic.steps) apply(s)],
+          ),
       ],
     );
   }

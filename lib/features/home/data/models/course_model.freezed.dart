@@ -2175,6 +2175,12 @@ mixin _$UserTopicProgress {
   @JsonKey(name: 'next_review_at')
   DateTime? get nextReviewAt => throw _privateConstructorUsedError;
 
+  /// The topic final (the boss on the map): best score and first finish.
+  @JsonKey(name: 'final_best_score')
+  int get finalBestScore => throw _privateConstructorUsedError;
+  @JsonKey(name: 'final_completed_at')
+  DateTime? get finalCompletedAt => throw _privateConstructorUsedError;
+
   /// Serializes this UserTopicProgress to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -2202,6 +2208,8 @@ abstract class $UserTopicProgressCopyWith<$Res> {
     @JsonKey(name: 'last_practiced_at') DateTime? lastPracticedAt,
     double strength,
     @JsonKey(name: 'next_review_at') DateTime? nextReviewAt,
+    @JsonKey(name: 'final_best_score') int finalBestScore,
+    @JsonKey(name: 'final_completed_at') DateTime? finalCompletedAt,
   });
 }
 
@@ -2229,6 +2237,8 @@ class _$UserTopicProgressCopyWithImpl<$Res, $Val extends UserTopicProgress>
     Object? lastPracticedAt = freezed,
     Object? strength = null,
     Object? nextReviewAt = freezed,
+    Object? finalBestScore = null,
+    Object? finalCompletedAt = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -2268,6 +2278,14 @@ class _$UserTopicProgressCopyWithImpl<$Res, $Val extends UserTopicProgress>
                 ? _value.nextReviewAt
                 : nextReviewAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            finalBestScore: null == finalBestScore
+                ? _value.finalBestScore
+                : finalBestScore // ignore: cast_nullable_to_non_nullable
+                      as int,
+            finalCompletedAt: freezed == finalCompletedAt
+                ? _value.finalCompletedAt
+                : finalCompletedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
           )
           as $Val,
     );
@@ -2293,6 +2311,8 @@ abstract class _$$UserTopicProgressImplCopyWith<$Res>
     @JsonKey(name: 'last_practiced_at') DateTime? lastPracticedAt,
     double strength,
     @JsonKey(name: 'next_review_at') DateTime? nextReviewAt,
+    @JsonKey(name: 'final_best_score') int finalBestScore,
+    @JsonKey(name: 'final_completed_at') DateTime? finalCompletedAt,
   });
 }
 
@@ -2319,6 +2339,8 @@ class __$$UserTopicProgressImplCopyWithImpl<$Res>
     Object? lastPracticedAt = freezed,
     Object? strength = null,
     Object? nextReviewAt = freezed,
+    Object? finalBestScore = null,
+    Object? finalCompletedAt = freezed,
   }) {
     return _then(
       _$UserTopicProgressImpl(
@@ -2358,6 +2380,14 @@ class __$$UserTopicProgressImplCopyWithImpl<$Res>
             ? _value.nextReviewAt
             : nextReviewAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        finalBestScore: null == finalBestScore
+            ? _value.finalBestScore
+            : finalBestScore // ignore: cast_nullable_to_non_nullable
+                  as int,
+        finalCompletedAt: freezed == finalCompletedAt
+            ? _value.finalCompletedAt
+            : finalCompletedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
       ),
     );
   }
@@ -2376,6 +2406,8 @@ class _$UserTopicProgressImpl implements _UserTopicProgress {
     @JsonKey(name: 'last_practiced_at') this.lastPracticedAt,
     this.strength = 0.0,
     @JsonKey(name: 'next_review_at') this.nextReviewAt,
+    @JsonKey(name: 'final_best_score') this.finalBestScore = 0,
+    @JsonKey(name: 'final_completed_at') this.finalCompletedAt,
   });
 
   factory _$UserTopicProgressImpl.fromJson(Map<String, dynamic> json) =>
@@ -2408,9 +2440,17 @@ class _$UserTopicProgressImpl implements _UserTopicProgress {
   @JsonKey(name: 'next_review_at')
   final DateTime? nextReviewAt;
 
+  /// The topic final (the boss on the map): best score and first finish.
+  @override
+  @JsonKey(name: 'final_best_score')
+  final int finalBestScore;
+  @override
+  @JsonKey(name: 'final_completed_at')
+  final DateTime? finalCompletedAt;
+
   @override
   String toString() {
-    return 'UserTopicProgress(id: $id, userId: $userId, topicId: $topicId, crownLevel: $crownLevel, lessonsCompleted: $lessonsCompleted, isUnlocked: $isUnlocked, lastPracticedAt: $lastPracticedAt, strength: $strength, nextReviewAt: $nextReviewAt)';
+    return 'UserTopicProgress(id: $id, userId: $userId, topicId: $topicId, crownLevel: $crownLevel, lessonsCompleted: $lessonsCompleted, isUnlocked: $isUnlocked, lastPracticedAt: $lastPracticedAt, strength: $strength, nextReviewAt: $nextReviewAt, finalBestScore: $finalBestScore, finalCompletedAt: $finalCompletedAt)';
   }
 
   @override
@@ -2432,7 +2472,11 @@ class _$UserTopicProgressImpl implements _UserTopicProgress {
             (identical(other.strength, strength) ||
                 other.strength == strength) &&
             (identical(other.nextReviewAt, nextReviewAt) ||
-                other.nextReviewAt == nextReviewAt));
+                other.nextReviewAt == nextReviewAt) &&
+            (identical(other.finalBestScore, finalBestScore) ||
+                other.finalBestScore == finalBestScore) &&
+            (identical(other.finalCompletedAt, finalCompletedAt) ||
+                other.finalCompletedAt == finalCompletedAt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2448,6 +2492,8 @@ class _$UserTopicProgressImpl implements _UserTopicProgress {
     lastPracticedAt,
     strength,
     nextReviewAt,
+    finalBestScore,
+    finalCompletedAt,
   );
 
   /// Create a copy of UserTopicProgress
@@ -2478,6 +2524,8 @@ abstract class _UserTopicProgress implements UserTopicProgress {
     @JsonKey(name: 'last_practiced_at') final DateTime? lastPracticedAt,
     final double strength,
     @JsonKey(name: 'next_review_at') final DateTime? nextReviewAt,
+    @JsonKey(name: 'final_best_score') final int finalBestScore,
+    @JsonKey(name: 'final_completed_at') final DateTime? finalCompletedAt,
   }) = _$UserTopicProgressImpl;
 
   factory _UserTopicProgress.fromJson(Map<String, dynamic> json) =
@@ -2508,6 +2556,14 @@ abstract class _UserTopicProgress implements UserTopicProgress {
   @override
   @JsonKey(name: 'next_review_at')
   DateTime? get nextReviewAt;
+
+  /// The topic final (the boss on the map): best score and first finish.
+  @override
+  @JsonKey(name: 'final_best_score')
+  int get finalBestScore;
+  @override
+  @JsonKey(name: 'final_completed_at')
+  DateTime? get finalCompletedAt;
 
   /// Create a copy of UserTopicProgress
   /// with the given fields replaced by the non-null parameter values.

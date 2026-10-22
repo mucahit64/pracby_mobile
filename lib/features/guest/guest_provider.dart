@@ -28,6 +28,7 @@ class GuestQuizResult {
     required this.totalQuestions,
     this.stepId,
     this.testId,
+    this.sessionType,
   });
 
   factory GuestQuizResult.fromJson(Map<String, dynamic> json) =>
@@ -35,6 +36,7 @@ class GuestQuizResult {
         topicId: json['topicId'] as String,
         stepId: json['stepId'] as String?,
         testId: json['testId'] as String?,
+        sessionType: json['sessionType'] as String?,
         correctCount: (json['correctCount'] as num).toInt(),
         totalQuestions: (json['totalQuestions'] as num).toInt(),
       );
@@ -42,6 +44,10 @@ class GuestQuizResult {
   final String topicId;
   final String? stepId;
   final String? testId;
+
+  /// 'topic_final' for the boss. Older results have none; a result without a
+  /// step is a final (the map starts every lesson with its step).
+  final String? sessionType;
   final int correctCount;
   final int totalQuestions;
 
@@ -50,6 +56,7 @@ class GuestQuizResult {
     'topicId': topicId,
     if (stepId != null) 'stepId': stepId,
     if (testId != null) 'testId': testId,
+    if (sessionType != null) 'sessionType': sessionType,
     'correctCount': correctCount,
     'totalQuestions': totalQuestions,
   };
@@ -281,9 +288,8 @@ class GuestNotifier extends StateNotifier<GuestState> {
   /// Removes guest progress; [guestId] is kept (docs 10.1).
   /// Forgets the chosen exam but keeps progress, energy and acorns (web
   /// removes only `guestExamTypeId` when that exam no longer exists).
-  void clearExamType() => _save(
-    state.copyWith(examTypeId: () => null, examGroupId: () => null),
-  );
+  void clearExamType() =>
+      _save(state.copyWith(examTypeId: () => null, examGroupId: () => null));
 
   void clear() {
     state = const GuestState();
@@ -309,6 +315,7 @@ class GuestNotifier extends StateNotifier<GuestState> {
       topics: [
         for (final topic in course.topics)
           topic.copyWith(
+            progress: topic.progress ?? _finalProgress(topic.id, results),
             steps: [
               for (final step in topic.steps)
                 if (step.progress != null)
@@ -330,6 +337,32 @@ class GuestNotifier extends StateNotifier<GuestState> {
             ],
           ),
       ],
+    );
+  }
+
+  /// The boss: the best of the topic's finals (results without a step).
+  UserTopicProgress? _finalProgress(
+    String topicId,
+    List<GuestQuizResult> results,
+  ) {
+    final finals = results.where(
+      (r) => r.topicId == topicId && r.stepId == null,
+    );
+    if (finals.isEmpty) return null;
+    return UserTopicProgress(
+      id: '',
+      userId: '',
+      topicId: topicId,
+      finalBestScore: finals.fold<int>(
+        0,
+        (best, r) => max(
+          best,
+          r.totalQuestions > 0
+              ? (r.correctCount / r.totalQuestions * 100).round()
+              : 0,
+        ),
+      ),
+      finalCompletedAt: DateTime.now(),
     );
   }
 

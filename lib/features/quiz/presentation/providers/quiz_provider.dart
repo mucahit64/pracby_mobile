@@ -387,6 +387,9 @@ class QuizController extends StateNotifier<QuizState> {
             topicId: params.topicId,
             stepId: params.stepId,
             testId: params.testId,
+            sessionType: params.sessionType == 'topic_final'
+                ? 'topic_final'
+                : null,
             correctCount: state.correctCount,
             totalQuestions: state.questions.length,
           ),

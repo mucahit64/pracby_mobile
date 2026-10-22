@@ -198,6 +198,10 @@ _$UserTopicProgressImpl _$$UserTopicProgressImplFromJson(
   nextReviewAt: json['next_review_at'] == null
       ? null
       : DateTime.parse(json['next_review_at'] as String),
+  finalBestScore: (json['final_best_score'] as num?)?.toInt() ?? 0,
+  finalCompletedAt: json['final_completed_at'] == null
+      ? null
+      : DateTime.parse(json['final_completed_at'] as String),
 );
 
 Map<String, dynamic> _$$UserTopicProgressImplToJson(
@@ -212,6 +216,8 @@ Map<String, dynamic> _$$UserTopicProgressImplToJson(
   'last_practiced_at': instance.lastPracticedAt?.toIso8601String(),
   'strength': instance.strength,
   'next_review_at': instance.nextReviewAt?.toIso8601String(),
+  'final_best_score': instance.finalBestScore,
+  'final_completed_at': instance.finalCompletedAt?.toIso8601String(),
 };
 
 _$UserStepProgressImpl _$$UserStepProgressImplFromJson(

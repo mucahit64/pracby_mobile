@@ -72,7 +72,9 @@ class CourseModel with _$CourseModel {
 class TopicModel with _$TopicModel {
   const factory TopicModel({
     required String id,
-    @JsonKey(name: 'name') required String title, @JsonKey(name: 'sort_order') required int order, @JsonKey(name: 'course_id') String? courseId,
+    @JsonKey(name: 'name') required String title,
+    @JsonKey(name: 'sort_order') required int order,
+    @JsonKey(name: 'course_id') String? courseId,
     String? description,
     @JsonKey(name: 'icon_url') String? iconUrl,
     @JsonKey(name: 'total_lessons') @Default(0) int totalLessons,
@@ -91,7 +93,9 @@ class TopicModel with _$TopicModel {
 class StepModel with _$StepModel {
   const factory StepModel({
     required String id,
-    @JsonKey(name: 'sort_order') required int order, @JsonKey(name: 'step_type') required StepType type, @JsonKey(name: 'topic_id') String? topicId,
+    @JsonKey(name: 'sort_order') required int order,
+    @JsonKey(name: 'step_type') required StepType type,
+    @JsonKey(name: 'topic_id') String? topicId,
     @JsonKey(name: 'name') @Default('') String title,
     String? description,
     @JsonKey(name: 'tests_required') @Default(5) int testsRequired,
@@ -117,6 +121,10 @@ class UserTopicProgress with _$UserTopicProgress {
     @JsonKey(name: 'last_practiced_at') DateTime? lastPracticedAt,
     @Default(0.0) double strength,
     @JsonKey(name: 'next_review_at') DateTime? nextReviewAt,
+
+    /// The topic final (the boss on the map): best score and first finish.
+    @JsonKey(name: 'final_best_score') @Default(0) int finalBestScore,
+    @JsonKey(name: 'final_completed_at') DateTime? finalCompletedAt,
   }) = _UserTopicProgress;
 
   factory UserTopicProgress.fromJson(Map<String, dynamic> json) =>
@@ -133,6 +141,7 @@ class UserStepProgress with _$UserStepProgress {
     @JsonKey(name: 'is_step_completed') @Default(false) bool isStepCompleted,
     @JsonKey(name: 'step_final_passed') @Default(false) bool stepFinalPassed,
     @Default(0) int stars,
+
     /// Best accuracy (0-100) — shown on completed lesson nodes (docs 6.4).
     @JsonKey(name: 'best_score') @Default(0) int bestScore,
     @JsonKey(name: 'completed_at') DateTime? completedAt,
