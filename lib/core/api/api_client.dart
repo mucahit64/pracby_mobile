@@ -8,9 +8,14 @@ import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/api/response_cache.dart';
 import 'package:pracby_mobile/core/storage/secure_storage.dart';
 
+/// Production: nginx serves the web app and `/api` on the same domain. A
+/// release build without `--dart-define`s talks to it instead of a dev server.
+const _productionUrl = 'https://pracby.com';
+
 String get _apiBaseUrl {
   const envUrl = String.fromEnvironment('API_BASE_URL');
   if (envUrl.isNotEmpty) return envUrl;
+  if (kReleaseMode) return _productionUrl;
   if (kIsWeb) return 'http://127.0.0.1:3001';
   if (Platform.isAndroid) return 'http://10.0.2.2:3001';
   return 'http://127.0.0.1:3001';
@@ -23,7 +28,8 @@ String get webBaseUrl {
   if (envUrl.isNotEmpty) return envUrl;
   // The local Nuxt dev server serves files only on IPv6 (::1); its IPv4
   // listener answers 426 Upgrade Required. "localhost" may resolve to IPv4
-  // first, so use ::1 explicitly. Production sets WEB_BASE_URL.
+  // first, so use ::1 explicitly.
+  if (kReleaseMode) return _productionUrl;
   if (kIsWeb) return 'http://localhost:3000';
   if (Platform.isAndroid) return 'http://10.0.2.2:3000';
   return 'http://[::1]:3000';

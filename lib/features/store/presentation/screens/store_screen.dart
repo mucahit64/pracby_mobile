@@ -16,6 +16,11 @@ import 'package:pracby_mobile/features/store/presentation/providers/store_provid
 import 'package:pracby_mobile/features/store/presentation/widgets/inventory_section.dart';
 import 'package:pracby_mobile/features/store/presentation/widgets/store_widgets.dart';
 
+/// Buying acorns with money isn't built yet, so the section stays hidden: a
+/// button that does nothing gets the app rejected. It must use the stores'
+/// in-app purchases when it comes.
+const _acornPurchaseEnabled = false;
+
 class StoreScreen extends ConsumerWidget {
   const StoreScreen({super.key});
 
@@ -91,7 +96,7 @@ class StoreScreen extends ConsumerWidget {
         ),
       if (effects.isNotEmpty) ActiveEffectsSection(effects: effects),
       if (!isGuest) const InventorySection(),
-      if (!isGuest) const _AcornPackagesSection(),
+      if (!isGuest && _acornPurchaseEnabled) const _AcornPackagesSection(),
     ];
 
     return Scaffold(
