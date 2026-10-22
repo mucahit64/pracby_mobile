@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/utils/level_progress.dart';
+import 'package:pracby_mobile/core/widgets/legal_links.dart';
 import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
@@ -95,6 +96,8 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ],
       ),
+
+      const LegalLinks(),
     ];
 
     return Scaffold(

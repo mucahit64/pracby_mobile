@@ -5,6 +5,7 @@ import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
+import 'package:pracby_mobile/core/widgets/legal_links.dart';
 import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/presentation/availability_check.dart';
@@ -324,6 +325,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Kayıt olarak Kullanım Koşulları’nı kabul edersin. Kişisel '
+                  'verilerinin nasıl işlendiği Gizlilik ve KVKK metninde.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: AppColors.grey400),
+                ),
+                const LegalLinks(),
               ],
             ),
           ),

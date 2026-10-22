@@ -186,6 +186,31 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 isLoading: _saving,
                 onPressed: _hasChanges && !_saving ? _save : null,
               ),
+              const SizedBox(height: 40),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text(
+                'Hesabı Sil',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.error,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Hesabın, ilerlemen, palamutların ve envanterin kalıcı olarak '
+                'silinir. Bu işlem geri alınamaz.',
+                style: TextStyle(fontSize: 13, color: AppColors.grey400),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: _saving ? null : _deleteAccount,
+                child: const Text('Hesabımı sil'),
+              ),
             ],
           ),
         ),
@@ -223,6 +248,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       onChanged: field == null ? null : (_) => _clearServerError(field),
       validator: validator,
     );
+  }
+
+  /// Store requirement (Google Play / App Store): in-app account deletion.
+  /// The dialog asks for the password and makes the request; on success the
+  /// session ends and the router leaves this screen, like signing out.
+  Future<void> _deleteAccount() async {
+    final deleted = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _DeleteAccountDialog(),
+    );
+    if (deleted != true || !mounted) return;
+    await ref.read(authStateProvider.notifier).logout();
   }
 
   void _clearServerError(_Field field) {
@@ -271,7 +308,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   /// Which field a server error belongs to (docs 11.5 error codes).
   _Field? _fieldFor(ApiException e) {
-    if (e.statusCode == 401) return _Field.currentPassword;
+    if (e.statusCode == 403) return _Field.currentPassword;
     if (e.statusCode == 409) {
       return e.message.contains('e-posta') ? _Field.email : _Field.username;
     }
@@ -281,14 +318,101 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     return null;
   }
 
-  /// The API's 401/409 messages are Turkish; validation ones are English.
+  /// The API's 403/409 messages are Turkish; validation ones are English.
   String _messageFor(ApiException e, _Field field) {
-    if (e.statusCode == 401 || e.statusCode == 409) return e.message;
+    if (e.statusCode == 403 || e.statusCode == 409) return e.message;
     return switch (field) {
       _Field.username => 'Bu kullanıcı adı kullanılamaz',
       _Field.email => 'Geçerli bir e-posta adresi gir',
       _Field.currentPassword => 'Mevcut şifreni gir',
       _Field.newPassword => 'Yeni şifre en az 6 karakter olmalı',
     };
+  }
+}
+
+class _DeleteAccountDialog extends ConsumerStatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  ConsumerState<_DeleteAccountDialog> createState() =>
+      _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
+  final _password = TextEditingController();
+  bool _deleting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _password.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+    try {
+      await ref.read(userRepositoryProvider).deleteAccount(_password.text);
+      if (mounted) Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Hesabını sil'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tüm verilerin kalıcı olarak silinecek. Onaylamak için şifreni gir.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _password,
+            obscureText: true,
+            autocorrect: false,
+            enableSuggestions: false,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'Şifre',
+              prefixIcon: const Icon(Icons.lock_outlined),
+              errorText: _error,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _deleting ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Vazgeç'),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          onPressed: _deleting || _password.text.isEmpty ? null : _delete,
+          child: _deleting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Kalıcı olarak sil'),
+        ),
+      ],
+    );
   }
 }

@@ -71,6 +71,12 @@ class UserRepository {
     );
   }
 
+  /// `DELETE /api/users/me`: deletes the account and all its data. A wrong
+  /// [password] is a 403 (not 401, which would end the session).
+  Future<void> deleteAccount(String password) async {
+    await _apiClient.delete<void>(Endpoints.me, data: {'password': password});
+  }
+
   /// `PATCH /api/users/me` (docs 11.5). Only the given fields are sent.
   /// Field names are camelCase: the API drops unknown (e.g. snake_case) keys
   /// without an error. [currentPassword] is required with [email] or

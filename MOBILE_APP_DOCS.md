@@ -893,8 +893,19 @@ Alan adları **camelCase**'dir.
 - **Response:** `{ id, email, username, avatar_url, daily_goal_xp }`
 - **Hatalar:**
   - `400` validasyon
-  - `401` `Mevcut şifre hatalı`
+  - `403` `Mevcut şifre hatalı` (401 değil: istemci 401'de oturumu kapatır)
   - `409` `Bu kullanıcı adı zaten kullanılıyor` / `Bu e-posta zaten kullanılıyor`
+
+### 11.5.1 Hesap Silme
+```
+DELETE /api/users/me            Body: { "password": "<şifre>" }
+```
+Hesabı ve ona bağlı tüm verileri kalıcı olarak siler (Google Play / App Store zorunluluğu).
+- **Response:** `204` (gövde yok)
+- **Hatalar:**
+  - `400` validasyon (şifre boş)
+  - `403` `Şifre hatalı` / `Admin hesabı buradan silinemez`
+- Başarılı olunca istemci oturumu kapatır. Web'de nasıl silineceği: `https://pracby.com/hesap-silme`
 
 ### 11.6 Sınav Kayıtları
 ```
