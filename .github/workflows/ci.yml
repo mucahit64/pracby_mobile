@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    name: Analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Latest stable; pubspec.yaml needs Dart ^3.11.5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # The generated freezed / json files are committed; fail if they are stale
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: git diff --exit-code -- '*.g.dart' '*.freezed.dart'
+      # Lint infos (very_good_analysis style hints) don't fail the build; warnings and errors do
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
