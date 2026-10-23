@@ -486,6 +486,9 @@ Başlamış bir test internet kesilse de sonuna kadar çözülebilmelidir. Bu y�
 | Sandık açma (misafir) | Zaten yerel (10.7) |
 | Soru bildirimi | Kuyruğa yazılır, "Raporun internet gelince gönderilecek" gösterilir |
 
+#### Çevrimdışı şeridi (`core/widgets/offline_banner.dart`)
+Cihazda ağ bağlantısı yokken (Wi-Fi, mobil veri veya ethernet) her ekranın üstünde ince bir şerit görünür: "İnternet yok · Yaptıkların bağlanınca gönderilecek". Şerit `MaterialApp.builder` içindedir ve durum çubuğunun alanını kaplar. Sunucuya ulaşılıp ulaşılamadığını denemez, yalnızca cihazın bağlantısına bakar. Web'de böyle bir uyarı yoktur, web'in çevrimiçi olduğu varsayılır.
+
 #### Yanıt önbelleği (`core/api/response_cache.dart`)
 Şu GET isteklerinin son başarılı yanıtı Hive'da (`response_cache`) saklanır ve bağlantı yokken bu yanıt döner: `/exam-groups`, `/modules`, `/courses*` (harita dahil), `/store/items`, `/users/me`. Böylece internetsizken:
 - Ders haritası açılır.

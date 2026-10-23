@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/router/app_router.dart';
 import 'package:pracby_mobile/core/theme/app_theme.dart';
+import 'package:pracby_mobile/core/widgets/offline_banner.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
@@ -86,6 +87,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       routerConfig: router,
+      builder: (context, child) => OfflineBanner(child: child!),
     );
   }
 }
