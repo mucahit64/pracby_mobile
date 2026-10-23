@@ -457,8 +457,8 @@ class _CourseRoadmapSection extends ConsumerWidget {
               // only took taps where it still overlapped its unshifted box,
               // so the right side of the button did nothing.
               padding: EdgeInsets.only(
-                top: 4,
-                bottom: 4,
+                top: 8,
+                bottom: 8,
                 left: nodeOffset(i) * 2,
               ),
               child: MapNodeView(

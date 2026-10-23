@@ -106,8 +106,9 @@ List<MapNode> buildLessonNodes(
 /// Horizontal zigzag offsets, repeating every 5 nodes (web: 0/40/65/40/0px).
 double nodeOffset(int index) => const <double>[0, 40, 65, 40, 0][index % 5];
 
-/// Diameter of a map button (web `PbStepCoin` :size="84").
-const mapNodeDiameter = 84.0;
+/// Diameter of a map button. A bit smaller than the web's 84px
+/// (`PbStepCoin` :size="84"), which looked too big on a phone.
+const mapNodeDiameter = 76.0;
 
 /// A map button drawn as a tilted coin, like the web's `PbStepCoin`: a face
 /// with a lighter rim band over a cylinder side, and a best-score ring
