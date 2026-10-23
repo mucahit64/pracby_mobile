@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pracby_mobile/core/api/api_client.dart';
 import 'package:pracby_mobile/core/api/api_exception.dart';
+import 'package:pracby_mobile/core/api/response_cache.dart';
 import 'package:pracby_mobile/core/utils/image_prefetch.dart';
 import 'package:pracby_mobile/features/auth/data/auth_repository.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
@@ -10,6 +12,7 @@ import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider
 import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
+import 'package:pracby_mobile/features/offline/quiz_packages.dart';
 import 'package:pracby_mobile/features/quiz/data/models/question_model.dart';
 import 'package:pracby_mobile/features/quiz/data/models/quiz_answer.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
@@ -204,6 +207,11 @@ class QuizController extends StateNotifier<QuizState> {
   String? _sessionId;
   final List<QuizAnswer> _localAnswers = [];
 
+  /// Set when the lesson was started from a downloaded quiz package: there
+  /// is no server session, the result goes through the offline queue.
+  QuizPackage? _package;
+  String? _localId;
+
   QuizRepository get _quizRepo => _ref.read(quizRepositoryProvider);
   OfflineQueue get _offline => _ref.read(offlineQueueProvider);
   String? get _userId => _ref.read(authStateProvider).valueOrNull?.id;
@@ -250,7 +258,63 @@ class QuizController extends StateNotifier<QuizState> {
       ? 'Sorular yüklenemedi. İnternet bağlantını kontrol et.'
       : e.message;
 
+  /// A lesson with a downloaded package starts from it at once, online or
+  /// not (docs 7.5.1): no waiting on a slow connection, and one way to
+  /// finish it. Finals and lessons without a package start online.
+  QuizPackage? _packageForParams() {
+    final stepId = params.stepId;
+    if (stepId == null ||
+        (params.sessionType != null && params.sessionType != 'lesson')) {
+      return null;
+    }
+    final package = _ref.read(quizPackagesProvider).forStep(stepId);
+    if (package == null ||
+        (params.testId != null && params.testId != package.testId)) {
+      return null;
+    }
+    return package;
+  }
+
+  Future<void> _startFromPackage(QuizPackage package) async {
+    _package = package;
+    _localId =
+        '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32)}';
+    if (_isGuest) {
+      _guest.refreshEnergy();
+      state = state.copyWith(
+        loading: false,
+        questions: package.questions,
+        energy: _ref.read(guestProvider).energyCount,
+      );
+      return;
+    }
+    unawaited(_offline.sync(userId: _userId));
+    // The server checks energy when a session starts; here the device does,
+    // with the cached profile and effects.
+    final user = _ref.read(authStateProvider).valueOrNull;
+    // Effects are cached for offline use; don't wait long on a slow network.
+    final effects = await _ref
+        .read(activeEffectsProvider.future)
+        .timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => const <ActiveEffect>[],
+        )
+        .catchError((Object _) => const <ActiveEffect>[]);
+    if (!mounted) return;
+    final unlimited = hasUnlimitedEnergy(effects);
+    final energy = user?.energy ?? 25;
+    state = state.copyWith(
+      loading: false,
+      questions: energy > 0 || unlimited ? package.questions : const [],
+      energy: energy,
+      unlimitedEnergy: unlimited,
+    );
+    if (energy <= 0 && !unlimited) await openEnergyDialog();
+  }
+
   Future<void> _start() async {
+    final package = _packageForParams();
+    if (package != null) return _startFromPackage(package);
     if (_isGuest) return _startGuest();
 
     // Sessions that failed to submit in a previous visit (web: onMounted).
@@ -398,6 +462,7 @@ class QuizController extends StateNotifier<QuizState> {
       state = state.copyWith(acornEarned: state.correctCount, finished: true);
       return;
     }
+    if (_package != null) return _finishPackaged(_package!);
     final sessionId = _sessionId;
     if (sessionId == null) return;
     final answers = List<QuizAnswer>.of(_localAnswers);
@@ -447,6 +512,57 @@ class QuizController extends StateNotifier<QuizState> {
         finished: true,
       );
     }
+  }
+
+  /// A lesson played from a package: queued, shown on the device at once
+  /// (acorns +1 per correct answer, energy, map, streak), then sent right
+  /// away if online. The server's values replace the local ones after that.
+  Future<void> _finishPackaged(QuizPackage package) async {
+    final userId = _userId;
+    if (userId == null) return;
+    final skipRewards = state.energyDepleted;
+    final acorns = skipRewards ? 0 : state.correctCount;
+    await _offline.enqueuePackagedFinish(
+      userId: userId,
+      localId: _localId!,
+      answers: List<QuizAnswer>.of(_localAnswers),
+      skipRewards: skipRewards,
+      topicId: package.topicId,
+      stepId: package.stepId,
+      testId: package.testId,
+      correctCount: state.correctCount,
+      totalQuestions: state.questions.length,
+    );
+    _localAnswers.clear();
+    final user = _ref.read(authStateProvider).valueOrNull;
+    _ref
+        .read(authStateProvider.notifier)
+        .setBalances(
+          energy: state.energy,
+          acorns: user == null ? null : user.acorns + acorns,
+        );
+    if (!skipRewards) _ref.read(responseCacheProvider).markPlayedToday();
+    state = state.copyWith(
+      acornEarned: acorns,
+      pendingSync: true,
+      finished: true,
+    );
+    await _sendQueued(userId);
+  }
+
+  /// Tries to send the queue now. Afterwards (sent, or offline with the
+  /// cached values patched) the profile, stats and streak are reloaded.
+  Future<void> _sendQueued(String userId) async {
+    final offline = _offline;
+    final auth = _ref.read(authStateProvider.notifier);
+    final sent = await offline.sync(userId: userId) &&
+        !offline.hasPendingFor(userId);
+    if (!mounted) return;
+    if (sent) {
+      unawaited(auth.refreshUser());
+      state = state.copyWith(pendingSync: false);
+    }
+    refreshAfterQuiz(_ref);
   }
 
   /// Energy packages (`energy_refill`) with the current acorn balance.
@@ -588,6 +704,30 @@ class QuizController extends StateNotifier<QuizState> {
         _ref.read(authStateProvider.notifier).setBalances(energy: state.energy);
       }
       unawaited(_closeSession(sessionId, answers, energy: state.energy));
+    } else if (_package case final package?
+        when !_isGuest && answers.isNotEmpty) {
+      // Played from a package: queue the answers without rewards so the
+      // server still deducts the energy for the wrong ones.
+      final userId = _userId;
+      final offline = _offline;
+      if (userId != null) {
+        if (!state.unlimitedEnergy) {
+          _ref.read(authStateProvider.notifier).setBalances(energy: state.energy);
+        }
+        unawaited(
+          offline
+              .enqueuePackagedFinish(
+                userId: userId,
+                localId: _localId!,
+                answers: answers,
+                skipRewards: true,
+                topicId: package.topicId,
+                stepId: package.stepId,
+                testId: package.testId,
+              )
+              .then((_) => offline.sync(userId: userId)),
+        );
+      }
     }
     state = state.copyWith(dialog: QuizDialog.none, exitRequested: true);
   }
@@ -645,6 +785,7 @@ class QuizController extends StateNotifier<QuizState> {
     }
     _localAnswers.clear();
     _sessionId = null;
+    _package = null;
     state = QuizState(isGuest: _isGuest);
     await _start();
   }

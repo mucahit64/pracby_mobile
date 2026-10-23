@@ -457,7 +457,18 @@ Body: { answers: AnswerInput[]; skip_rewards?: boolean }      // skip_rewards de
 - Web istemcisi offline kuyruğu `pb_pending_quiz` anahtarında `{ sessionId, answers, savedAt, skipRewards }[]` olarak tutar. Mobilde karşılığı `features/quiz/domain/offline_quiz_buffer.dart` dosyasıdır.
 
 ### 7.5.1 İnternetsiz Çalışma
-Başlamış bir test internet kesilse de sonuna kadar çözülebilmelidir. Bu yüzden yeni bir test **ancak her şey yüklendikten sonra** başlar.
+Uygulama internetsiz açılınca son açık harita (önbellekten) gelir ve **önceden indirilmiş** sıradaki dersler çözülebilir. Başlamış bir test de internet kesilse sonuna kadar çözülebilir.
+
+#### Quiz paketleri (`features/offline/quiz_packages.dart`)
+- Ders haritası yüklendiğinde (`courseFullProvider`), o kursun **ilk 3 bitmemiş dersi** (harita sırasıyla, sandıklar hariç) `GET /quiz/guest-start` ile indirilir: sorular, `is_correct` cevap anahtarı ve soru görselleri. Oturum açılmaz. Paket Hive `quiz_packages` kutusunda adım ID'siyle tutulur; `test_id` (guest-start adımın ilk testini verir) da saklanır.
+- 12 saatten eski paketler yeniden indirilir. O kursun artık sıradaki olmayan dersleri silinir. Görselleri inmeyen paket kaydedilmez.
+- **Paketi olan ders her zaman paketten açılır** (internet olsa da): beklemeden başlar ve tek yoldan biter. Enerji kontrolü cihazda yapılır (önbellekteki profil ve etkiler). Finaller, boss ve paketi olmayan dersler internetle başlar.
+- **Bitiş (üye):** Sonuç kuyruğa "paketten çözülen test" olarak yazılır, palamut (+1/doğru), enerji, harita ve seri cihazda hemen güncellenir, ardından kuyruk hemen gönderilmeye çalışılır. Gönderirken önce `/quiz/start` (aynı `testId` ile, soru seti birebir aynı) çağrılır ve dönen oturum ID'si **önce kayda yazılır**, sonra `finish-bulk` gönderilir. Tekrar denemede aynı oturum kullanılır, ödül iki kez verilmez. `/quiz/start` 403 (sunucuda enerji yok) dönerse kayıt silinmez, sonra yeniden denenir. Yarıda çıkışta verilen cevaplar `skip_rewards: true` ile aynı yoldan gider.
+- **Seri:** Sunucu sonucu son cevabın `answeredAt` gününe yazar (en fazla 7 gün geriye, 16.4), yani günler sonra gönderilen sonuç da kendi gününe sayılır.
+- **Misafir:** Paketten açılır, sonuç zaten yereldir.
+- **Harita:** İnternet yokken paketi olmayan dersler ve boss sönük görünür, dokununca "Bu test için internet gerekli." yazar. Sandıklar çalışır (kuyruk). Harita seçicide diğer sınavlar ve haritası önbellekte olmayan dersler sönüktür.
+
+#### Paketi olmayan testi başlatma
 
 - **Başlarken:** Sorular (`/quiz/start` veya `/quiz/guest-start`) ve testteki **tüm soru görselleri** indirilmeden test ekranı açılmaz. Görseller önbelleğe indirilir (`ImagePrefetch`, `cached_network_image` ile aynı önbellek).
   - Bir görsel bağlantı yüzünden inmezse test başlamaz ve "Sorular yüklenemedi. İnternet bağlantını kontrol et." mesajı ile **Tekrar Dene** butonu gösterilir. Kayıtlı kullanıcının açılmış oturumu cevapsız ve `skip_rewards: true` ile kapatılır.
@@ -490,7 +501,7 @@ Başlamış bir test internet kesilse de sonuna kadar çözülebilmelidir. Bu y�
 Cihazda ağ bağlantısı yokken (Wi-Fi, mobil veri veya ethernet) her ekranın üstünde ince bir şerit görünür: "İnternet yok · Yaptıkların bağlanınca gönderilecek". Şerit `MaterialApp.builder` içindedir ve durum çubuğunun alanını kaplar. Sunucuya ulaşılıp ulaşılamadığını denemez, yalnızca cihazın bağlantısına bakar. Web'de böyle bir uyarı yoktur, web'in çevrimiçi olduğu varsayılır.
 
 #### Yanıt önbelleği (`core/api/response_cache.dart`)
-Şu GET isteklerinin son başarılı yanıtı Hive'da (`response_cache`) saklanır ve bağlantı yokken bu yanıt döner: `/exam-groups`, `/modules`, `/courses*` (harita dahil), `/store/items`, `/users/me`. Böylece internetsizken:
+Şu GET isteklerinin son başarılı yanıtı Hive'da (`response_cache`) saklanır ve bağlantı yokken bu yanıt döner: `/exam-groups`, `/modules`, `/courses*` (harita dahil), `/store/items`, `/store/effects`, `/users/me`, `/users/me/enrollments`, `/users/me/stats`, `/users/me/streak-history`. Böylece internetsizken:
 - Ders haritası açılır.
 - Enerji paketleri listelenir.
 - Uygulama yeniden açıldığında kayıtlı kullanıcı **misafire düşmez**.
@@ -498,7 +509,8 @@ Cihazda ağ bağlantısı yokken (Wi-Fi, mobil veri veya ethernet) her ekranın 
 Ek kurallar:
 - **Yerel bakiye:** Yerelde değişen bakiye (`setBalances`) önbellekteki profile de yazılır.
 - **Hesap değişince:** Giriş, kayıt ve çıkışta önbellek temizlenir.
-- **Quiz soruları önbelleğe alınmaz:** Test yalnızca internetle başlar.
+- **Seri:** Paketten çözülen ödüllü test, önbellekteki `/users/me/stats` ve `/users/me/streak-history`'de bugünü işaretler (`markPlayedToday`), sunucunun değeri gelene kadar.
+- **Quiz soruları burada önbelleğe alınmaz:** Sıradaki dersler quiz paketi olarak indirilir (yukarıda).
 
 ### 7.6 Eski Endpointler (Kullanmayın)
 ```
@@ -874,9 +886,9 @@ GET /api/users/me/streak-history
 ```
 Her zaman 7 eleman döner (Pazartesi → Pazar):
 ```typescript
-Array<{ label: "Pzt" | "Sal" | "Çrş" | "Per" | "Cum" | "Cts" | "Paz"; date: string; done: boolean; isToday: boolean }>
+Array<{ label: "Pzt" | "Sal" | "Çrş" | "Per" | "Cum" | "Cts" | "Paz"; date: string; done: boolean; frozen: boolean; isToday: boolean }>
 ```
-Günler UTC'ye göre hesaplanır.
+Günler UTC'ye göre hesaplanır. `frozen`: o gün quiz yok ama Seri Dondurma seriyi korudu (`done` ile birlikte `true` olmaz).
 
 ### 11.5 Profil Güncelleme
 ```
@@ -941,7 +953,7 @@ GET /api/store/items      → StoreItem[] (aktif ürünler, fiyata göre artan)
 
 | Ürün | `item_type` | Fiyat | Süre | Durum |
 |------|-------------|-------|------|-------|
-| Seri Dondurma 🧊 | `streak_freeze` | 20 | 24 saat | ⚠️ Etkisi sunucuda uygulanmıyor |
+| Seri Dondurma 🧊 | `streak_freeze` | 20 | 24 saat | Kapsadığı günler seriyi bozmaz (16.4) |
 | Sınırsız Enerji 🔋 | `unlimited_energy` | 40 | 8 saat | ✅ Çalışıyor |
 | XP Boost ⚡ | `xp_boost` | 30 | 1 saat | ⚠️ Etkisi sunucuda uygulanmıyor |
 | 5 Enerji | `energy_refill` | 15 | — | `metadata.energy_count = 5` |
@@ -1080,8 +1092,9 @@ Palamut yalnızca mağazada harcanır. İşlem tipleri: `earned_quiz`, `earned_a
 - Günlük hedef (`daily_goal_xp`) profilde ayarlanır. Bugünkü XP'yi dönen bir endpoint yoktur.
 
 ### 16.4 Seri (Streak)
-- Ödüllü (`skip_rewards: false`) bir quiz bitince güncellenir.
-- Son aktif gün dün ise seri +1 olur, bugün ise değişmez, daha eskiyse 1'e döner.
+- Ödüllü (`skip_rewards: false`) her quiz, oynandığı gün için `streak_history`'ye yazılır. `current_streak`, `max_streak` ve `last_active_date` her seferinde bu tablodan yeniden hesaplanır: en son günden geriye kesintisiz giden günler sayılır.
+- **Oynandığı gün:** `finish-bulk`'ta son cevabın `answeredAt` (cihaz saati) günüdür. Çevrimdışı kuyruktan günler sonra gelen sonuç da kendi gününe yazılır, sırasız gelse de seri doğru çıkar. 7 günden eski ya da ileri bir tarih bugün sayılır (cihaz saati değiştirilerek geçmiş günler doldurulamasın). Bu yüzden `answeredAt` her cevapta gönderilmelidir.
+- **Seri Dondurma:** Etkinleştirilince kapsadığı UTC günleri (24 saat, genelde bugün ve yarın) donmuş olarak işaretlenir. Donmuş gün seriyi bozmaz ama seriye eklenmez. `last_active_date` donmuş bir günü (yarını da) gösterebilir.
 - Günler **UTC**'ye göre sayılır. Türkiye saatiyle gün 03:00'te değişir.
 - Seri bir sonraki quiz'e kadar sıfırlanmaz. `last_active_date` dünden eskiyse arayüzde seri **0** gösterilmelidir.
 - `max_streak` tüm zamanların rekorudur.
@@ -1230,7 +1243,7 @@ Arayüz bunlara göre tasarlanmalı ya da backend'e iş açılmalıdır.
 | Konu | Durum | Mobilde ne yapılmalı |
 |------|-------|----------------------|
 | Enerji yenilenmesi | **Düzeltildi:** Enerji 25'ten düşerken yenilenme sayacı artık o andan başlıyor. Eskiden uzun süre dolu kalan kullanıcının harcadığı enerji anında geri geliyordu. Düzeltme yayına alınmadan önceki sunucularda `next_energy_at` geçmişte kalabilir | `next_energy_at` geçmişteyse `/users/me`'yi yeniden çağırın |
-| `xp_boost`, `streak_freeze` | Satın alınıp etkinleştirilebiliyor ama hiçbir etkisi yok | Açıklamada belirtin ya da satışı gizleyin |
+| `xp_boost` | Satın alınıp etkinleştirilebiliyor ama hiçbir etkisi yok (`streak_freeze` artık çalışıyor, 16.4) | Açıklamada belirtin ya da satışı gizleyin |
 | Liderlik tablosu | Dolduran bir işlem yok, hep boş | Boş durum ekranı |
 | `user_topic_progress` | Hiç yazılmıyor | Konu ilerlemesini adımlardan hesaplayın |
 | `level`, `daily_xp`, `weekly_xp`, `stars`, `score` | Güncellenmiyor | İstemcide hesaplayın veya göstermeyin |

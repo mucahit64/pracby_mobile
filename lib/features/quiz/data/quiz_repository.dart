@@ -40,12 +40,16 @@ class QuizRepository {
     final data = response.data!;
     return (
       sessionId: (data['session'] as Map<String, dynamic>)['id'] as String,
-      questions: _parseQuestions(data['questions']),
+      questions: parseQuestions(data['questions']),
     );
   }
 
   /// `GET /api/quiz/guest-start` (docs 7.1). No session is created.
-  Future<List<QuestionModel>> guestStart(QuizParams params) async {
+  Future<List<QuestionModel>> guestStart(QuizParams params) async =>
+      parseQuestions(await guestStartRaw(params));
+
+  /// [guestStart]'s questions as JSON, for storing them (quiz packages).
+  Future<List<dynamic>> guestStartRaw(QuizParams params) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
       Endpoints.quizGuestStart,
       queryParameters: {
@@ -55,7 +59,7 @@ class QuizRepository {
         if (params.sessionType != null) 'sessionType': params.sessionType,
       },
     );
-    return _parseQuestions(response.data!['questions']);
+    return response.data!['questions'] as List<dynamic>;
   }
 
   /// `POST /api/quiz/:sessionId/finish-bulk` (docs 7.4). Idempotent.
@@ -104,7 +108,7 @@ class QuizRepository {
     );
   }
 
-  List<QuestionModel> _parseQuestions(Object? raw) => (raw! as List)
+  static List<QuestionModel> parseQuestions(Object? raw) => (raw! as List)
       .map((q) => QuestionModel.fromJson(q as Map<String, dynamic>))
       .toList();
 }

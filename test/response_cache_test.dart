@@ -73,7 +73,7 @@ void main() {
     expect(res.extra['fromCache'], isTrue);
   });
 
-  test('never caches quiz questions: a quiz only starts online', () async {
+  test('never caches quiz questions (they are kept as quiz packages)', () async {
     adapter.body = {'questions': <Object>[]};
     await dio.get<dynamic>('${Endpoints.quizGuestStart}?topicId=t1');
 
@@ -92,5 +92,45 @@ void main() {
     adapter.online = false;
     final res = await dio.get<dynamic>(Endpoints.me);
     expect(res.data, {'id': 'u1', 'energy': 8, 'acorn_balance': 85});
+  });
+
+  test("serves the user's exams offline, so the map opens", () async {
+    adapter.body = [
+      {'exam_type_id': 'e1'},
+    ];
+    await dio.get<dynamic>(Endpoints.myEnrollments);
+
+    adapter.online = false;
+    final res = await dio.get<dynamic>(Endpoints.myEnrollments);
+    expect(res.data, [
+      {'exam_type_id': 'e1'},
+    ]);
+  });
+
+  test('a quiz played offline today shows in the cached streak', () async {
+    final now = DateTime.now().toUtc();
+    String day(DateTime d) => d.toIso8601String().substring(0, 10);
+    final yesterday = day(now.subtract(const Duration(days: 1)));
+    adapter.body = {
+      'current_streak': 4,
+      'max_streak': 4,
+      'last_active_date': '${yesterday}T00:00:00.000Z',
+    };
+    await dio.get<dynamic>(Endpoints.myStats);
+    adapter.body = [
+      {'date': day(now), 'done': false, 'frozen': false, 'isToday': true},
+    ];
+    await dio.get<dynamic>(Endpoints.myStreakHistory);
+
+    cache
+      ..markPlayedToday()
+      ..markPlayedToday(); // a second quiz the same day changes nothing
+    adapter.online = false;
+    final stats = (await dio.get<dynamic>(Endpoints.myStats)).data as Map;
+    expect(stats['current_streak'], 5);
+    expect(stats['max_streak'], 5);
+    expect(stats['last_active_date'], day(now));
+    final week = (await dio.get<dynamic>(Endpoints.myStreakHistory)).data as List;
+    expect((week.single as Map)['done'], isTrue);
   });
 }

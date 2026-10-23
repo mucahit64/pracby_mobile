@@ -100,6 +100,36 @@ class OfflineQueue extends ChangeNotifier {
     );
   }
 
+  /// A lesson played from a quiz package (no server session yet). The sync
+  /// starts the session with [testId] first and stores its ID in the entry
+  /// before sending the answers, so a retry finishes the same session and
+  /// the reward is never given twice. [localId] identifies the play.
+  Future<void> enqueuePackagedFinish({
+    required String userId,
+    required String localId,
+    required List<QuizAnswer> answers,
+    required bool skipRewards,
+    required String topicId,
+    required String stepId,
+    required String testId,
+    int correctCount = 0,
+    int totalQuestions = 0,
+  }) => _put(
+    _ActionType.finishQuiz,
+    userId: userId,
+    payload: {
+      'sessionId': null,
+      'localId': localId,
+      'testId': testId,
+      'answers': answers.map((a) => a.toJson()).toList(),
+      'skipRewards': skipRewards,
+      'topicId': topicId,
+      'stepId': stepId,
+      'correctCount': correctCount,
+      'totalQuestions': totalQuestions,
+    },
+  );
+
   Future<void> enqueuePurchase({
     required String userId,
     required String itemId,
@@ -145,7 +175,9 @@ class OfflineQueue extends ChangeNotifier {
         final action = entry.value;
         if (!_isSendable(action, userId: userId, hasToken: hasToken)) continue;
         try {
-          await _send(action);
+          await _send(entry.key, action);
+        } on _RetryLater {
+          break;
         } on ApiException catch (e) {
           // No connection, server trouble, rate limit or logged out: keep it
           // and everything after it for the next sync.
@@ -284,12 +316,14 @@ class OfflineQueue extends ChangeNotifier {
     return hasToken && userId != null && _belongsTo(action, userId);
   }
 
-  Future<void> _send(Map<String, dynamic> action) async {
+  Future<void> _send(String key, Map<String, dynamic> action) async {
     final p = action['payload'] as Map<String, dynamic>;
     switch (_ActionType.values.byName(action['type'] as String)) {
       case _ActionType.finishQuiz:
+        final sessionId =
+            p['sessionId'] as String? ?? await _startPackagedSession(key, action);
         await _quizRepository.finishBulk(
-          sessionId: p['sessionId'] as String,
+          sessionId: sessionId,
           answers: (p['answers'] as List)
               .map((a) => QuizAnswer.fromJson(a as Map<String, dynamic>))
               .toList(),
@@ -306,6 +340,31 @@ class OfflineQueue extends ChangeNotifier {
           description: p['description'] as String?,
           guestId: p['guestId'] as String?,
         );
+    }
+  }
+
+  /// Opens the server session of a lesson played from a quiz package and
+  /// saves its ID in the entry first (see [enqueuePackagedFinish]).
+  Future<String> _startPackagedSession(
+    String key,
+    Map<String, dynamic> action,
+  ) async {
+    final p = action['payload'] as Map<String, dynamic>;
+    try {
+      final started = await _quizRepository.start((
+        topicId: p['topicId'] as String,
+        stepId: p['stepId'] as String?,
+        testId: p['testId'] as String?,
+        sessionType: 'lesson',
+      ));
+      p['sessionId'] = started.sessionId;
+      await _box.put(key, jsonEncode(action));
+      return started.sessionId;
+    } on ApiException catch (e) {
+      // No energy on the server right now (403): the result must not be
+      // dropped like other rejections; try again later, e.g. after regen.
+      if (e.statusCode == 403) throw const _RetryLater();
+      rethrow;
     }
   }
 
@@ -352,4 +411,9 @@ class OfflineQueue extends ChangeNotifier {
     }
     legacy.clear();
   }
+}
+
+/// Stops the sync and keeps the entry, like a network error.
+class _RetryLater implements Exception {
+  const _RetryLater();
 }

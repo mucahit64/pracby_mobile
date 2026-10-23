@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:pracby_mobile/core/router/routes.dart';
 import 'package:pracby_mobile/core/storage/hive_storage.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_icon.dart';
+import 'package:pracby_mobile/core/widgets/offline_banner.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/auth/data/models/user_model.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -18,6 +21,7 @@ import 'package:pracby_mobile/features/home/presentation/widgets/lesson_map_node
 import 'package:pracby_mobile/features/onboarding/data/exam_groups_repository.dart';
 import 'package:pracby_mobile/features/home/presentation/widgets/status_top_bar.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
+import 'package:pracby_mobile/features/offline/quiz_packages.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
 import 'package:pracby_mobile/features/profile/presentation/providers/profile_provider.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
@@ -343,7 +347,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final coursesAsync = ref.watch(coursesProvider);
     return coursesAsync.when(
       loading: () => const PbLoading(),
-      error: (e, _) => Center(child: Text(userErrorMessage(e, 'Yüklenemedi. Tekrar dene.'))),
+      // Reached offline only when nothing was cached yet (first launch).
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            e is ApiException && e.isNetworkError
+                ? 'Haritayı görmek için bir kez internete bağlan.'
+                : 'Yüklenemedi. Tekrar dene.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
       data: (courses) => _buildCourseRoadmap(context, courses),
     );
   }
@@ -361,6 +376,11 @@ class _CourseRoadmapSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final courseFullAsync = ref.watch(courseFullProvider(course.id));
+    // Keep the next lessons downloaded for offline play (docs 7.5.1).
+    ref.listen(courseFullProvider(course.id), (_, next) {
+      final full = next.valueOrNull;
+      if (full != null) unawaited(ref.read(quizPackagesProvider).refreshFor(full));
+    });
 
     // Offline, a failed refresh keeps showing the last loaded map.
     return courseFullAsync.when(
@@ -447,6 +467,18 @@ class _CourseRoadmapSection extends ConsumerWidget {
       topic,
       openedChests: ref.watch(openedChestsProvider),
     );
+    final offline = ref.watch(isOfflineProvider).valueOrNull ?? false;
+    final packages = ref.watch(quizPackagesProvider);
+    // Offline only downloaded lessons can start; finals and the rest wait
+    // for a connection. Chests work offline (queued).
+    bool needsInternet(MapNode node) =>
+        offline &&
+        node.status != MapNodeStatus.locked &&
+        switch (node.type) {
+          MapNodeType.chest => false,
+          MapNodeType.boss => true,
+          MapNodeType.lesson => !packages.has(node.step!.id),
+        };
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -461,13 +493,28 @@ class _CourseRoadmapSection extends ConsumerWidget {
                 bottom: 8,
                 left: nodeOffset(i) * 2,
               ),
-              child: MapNodeView(
-                node: node,
-                topicColor: color,
-                onTap: _isTappable(node)
-                    ? () => _onNodeTap(context, ref, topic, node, courseId)
-                    : null,
-              ),
+              child: needsInternet(node)
+                  ? Opacity(
+                      opacity: 0.45,
+                      child: MapNodeView(
+                        node: node,
+                        topicColor: color,
+                        onTap: () => ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            const SnackBar(
+                              content: Text('Bu test için internet gerekli.'),
+                            ),
+                          ),
+                      ),
+                    )
+                  : MapNodeView(
+                      node: node,
+                      topicColor: color,
+                      onTap: _isTappable(node)
+                          ? () => _onNodeTap(context, ref, topic, node, courseId)
+                          : null,
+                    ),
             ),
         ],
       ),

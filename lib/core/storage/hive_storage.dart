@@ -16,6 +16,10 @@ const _responseCacheBox = 'response_cache';
 /// and `guestId`.
 const _guestBox = 'guest';
 
+/// Questions of the next lessons, downloaded so they can be played offline
+/// (`features/offline/quiz_packages.dart`). Content only, kept across users.
+const _quizPackagesBox = 'quiz_packages';
+
 /// Small UI preferences, e.g. the selected module / course on the lesson map
 /// (web: localStorage `pb_selectedModuleId`, `pb_selectedCourseId`).
 const _prefsBox = 'prefs';
@@ -30,6 +34,7 @@ class HiveStorage {
   Box<String>? _responseCache;
   Box<String>? _guest;
   Box<String>? _prefs;
+  Box<String>? _quizPackages;
 
   /// [path] is for tests: plain Hive in that directory instead of the app's
   /// documents directory.
@@ -44,6 +49,12 @@ class HiveStorage {
     _responseCache = await Hive.openBox<String>(_responseCacheBox);
     _guest = await Hive.openBox<String>(_guestBox);
     _prefs = await Hive.openBox<String>(_prefsBox);
+    _quizPackages = await Hive.openBox<String>(_quizPackagesBox);
+  }
+
+  Box<String> get quizPackagesBox {
+    assert(_quizPackages != null, 'HiveStorage not initialized.');
+    return _quizPackages!;
   }
 
   Box<String> get prefsBox {

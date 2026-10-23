@@ -7,6 +7,7 @@ import 'package:pracby_mobile/core/storage/hive_storage.dart';
 import 'package:pracby_mobile/core/storage/secure_storage.dart';
 import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/offline/offline_queue.dart';
+import 'package:pracby_mobile/features/quiz/data/models/question_model.dart';
 import 'package:pracby_mobile/features/quiz/data/models/quiz_answer.dart';
 import 'package:pracby_mobile/features/quiz/data/models/quiz_session.dart';
 import 'package:pracby_mobile/features/quiz/data/quiz_repository.dart';
@@ -29,12 +30,36 @@ class _FakeQuizRepository implements QuizRepository {
   _FakeQuizRepository(this.api);
   final _Api api;
 
+  /// Thrown by the next `start` / `finishBulk` only (then cleared).
+  ApiException? failStartOnce;
+  ApiException? failFinishOnce;
+  int _sessions = 0;
+
+  @override
+  Future<({String sessionId, List<QuestionModel> questions})> start(
+    QuizParams params,
+  ) {
+    final error = failStartOnce;
+    failStartOnce = null;
+    if (error != null) throw error;
+    _sessions += 1;
+    return api.call('start:${params.testId}', (
+      sessionId: 'srv$_sessions',
+      questions: const <QuestionModel>[],
+    ));
+  }
+
   @override
   Future<QuizFinishResult> finishBulk({
     required String sessionId,
     required List<QuizAnswer> answers,
     bool skipRewards = false,
-  }) => api.call('finish:$sessionId', QuizFinishResult.fromJson(const {}));
+  }) {
+    final error = failFinishOnce;
+    failFinishOnce = null;
+    if (error != null) throw error;
+    return api.call('finish:$sessionId', QuizFinishResult.fromJson(const {}));
+  }
 
   @override
   Future<Map<String, dynamic>> claimReward({required String stepId}) =>
@@ -83,6 +108,7 @@ void main() {
   late HiveStorage storage;
   late _Api api;
   late OfflineQueue queue;
+  late _FakeQuizRepository quizRepo;
 
   setUp(() async {
     dir = await Directory.systemTemp.createTemp('offline_queue_test');
@@ -91,7 +117,7 @@ void main() {
     api = _Api();
     queue = OfflineQueue(
       hiveStorage: storage,
-      quizRepository: _FakeQuizRepository(api),
+      quizRepository: quizRepo = _FakeQuizRepository(api),
       storeRepository: _FakeStoreRepository(api),
       secureStorage: _FakeSecureStorage(),
     );
@@ -114,6 +140,47 @@ void main() {
         correctCount: 8,
         totalQuestions: 10,
       );
+
+  Future<void> packagedFinish(String localId) => queue.enqueuePackagedFinish(
+    userId: 'u1',
+    localId: localId,
+    answers: const [],
+    skipRewards: false,
+    topicId: 't1',
+    stepId: 'step1',
+    testId: 'test1',
+    correctCount: 8,
+    totalQuestions: 10,
+  );
+
+  test('a lesson played from a package starts its session, then finishes', () async {
+    await packagedFinish('local1');
+    await queue.sync(userId: 'u1');
+    expect(api.calls, ['start:test1', 'finish:srv1']);
+    expect(queue.isEmpty, isTrue);
+  });
+
+  test('a retry after a lost finish reuses the started session', () async {
+    await packagedFinish('local1');
+    quizRepo.failFinishOnce = _offline;
+    await queue.sync(userId: 'u1');
+    expect(queue.hasPendingFor('u1'), isTrue);
+
+    await queue.sync(userId: 'u1');
+    // One session only, so the reward can't be given twice.
+    expect(api.calls, ['start:test1', 'finish:srv1']);
+    expect(queue.isEmpty, isTrue);
+  });
+
+  test('no energy on the server keeps the packaged result for later', () async {
+    await packagedFinish('local1');
+    quizRepo.failStartOnce = const ApiException(statusCode: 403, message: 'Enerjin kalmadı!');
+    await queue.sync(userId: 'u1');
+    expect(queue.hasPendingFor('u1'), isTrue);
+
+    await queue.sync(userId: 'u1');
+    expect(api.calls, ['start:test1', 'finish:srv1']);
+  });
 
   test('sends actions in the order they happened', () async {
     await queue.enqueuePurchase(userId: 'u1', itemId: 'energy5');

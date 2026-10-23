@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/core/api/endpoints.dart';
+import 'package:pracby_mobile/core/api/response_cache.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
+import 'package:pracby_mobile/core/widgets/offline_banner.dart';
 import 'package:pracby_mobile/features/home/data/models/course_model.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 import 'package:pracby_mobile/features/profile/data/models/enrollment_model.dart';
@@ -70,6 +73,13 @@ class _MapSelectionSheetState extends ConsumerState<_MapSelectionSheet> {
         : moduleId != null
         ? ref.watch(coursesByModuleProvider((_examTypeId, moduleId)))
         : ref.watch(coursesByExamProvider(_examTypeId));
+    // Offline: another exam can't be switched to (it's saved on the server)
+    // and only courses whose map is cached can open.
+    final offline = ref.watch(isOfflineProvider).valueOrNull ?? false;
+    final cache = ref.watch(responseCacheProvider);
+    void needsInternet(String what) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('$what için internet gerekli.')));
 
     return SingleChildScrollView(
       child: Column(
@@ -83,10 +93,17 @@ class _MapSelectionSheetState extends ConsumerState<_MapSelectionSheet> {
                   _Chip(
                     label: e.examTypeName,
                     selected: e.examTypeId == _examTypeId,
-                    onTap: () => setState(() {
-                      _examTypeId = e.examTypeId;
-                      _moduleId = null;
-                    }),
+                    enabled: !offline || e.examTypeId == widget.examTypeId,
+                    onTap: () {
+                      if (offline && e.examTypeId != widget.examTypeId) {
+                        needsInternet('Sınav değiştirmek');
+                        return;
+                      }
+                      setState(() {
+                        _examTypeId = e.examTypeId;
+                        _moduleId = null;
+                      });
+                    },
                   ),
               ],
             ),
@@ -125,16 +142,25 @@ class _MapSelectionSheetState extends ConsumerState<_MapSelectionSheet> {
                 : _ChipWrap(
                     children: [
                       for (final c in courses)
-                        _Chip(
-                          label: c.title,
-                          selected: c.id == widget.courseId,
-                          outlined: true,
-                          onTap: () => Navigator.pop<MapSelection>(context, (
-                            examTypeId: _examTypeId,
-                            moduleId: moduleId,
-                            courseId: c.id,
-                          )),
-                        ),
+                        if (offline && !cache.has(Endpoints.courseFull(c.id)))
+                          _Chip(
+                            label: c.title,
+                            selected: false,
+                            outlined: true,
+                            enabled: false,
+                            onTap: () => needsInternet('Bu dersi açmak'),
+                          )
+                        else
+                          _Chip(
+                            label: c.title,
+                            selected: c.id == widget.courseId,
+                            outlined: true,
+                            onTap: () => Navigator.pop<MapSelection>(context, (
+                              examTypeId: _examTypeId,
+                              moduleId: moduleId,
+                              courseId: c.id,
+                            )),
+                          ),
                     ],
                   ),
           ),
@@ -182,12 +208,16 @@ class _Chip extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.outlined = false,
+    this.enabled = true,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
   final bool outlined;
+
+  /// Dimmed when it needs a connection; a tap explains why.
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +233,7 @@ class _Chip extends StatelessWidget {
       background = AppColors.primary;
       foreground = Colors.white;
     }
-    return Material(
+    final chip = Material(
       color: background,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
@@ -228,5 +258,6 @@ class _Chip extends StatelessWidget {
         ),
       ),
     );
+    return enabled ? chip : Opacity(opacity: 0.45, child: chip);
   }
 }
