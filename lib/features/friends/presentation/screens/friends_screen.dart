@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/friends/data/friends_repository.dart';
@@ -65,7 +66,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
 
     return friendsAsync.when(
       loading: () => const PbLoading(message: 'Yükleniyor...'),
-      error: (e, _) => Center(child: Text('Hata: $e')),
+      error: (e, _) => Center(child: Text(userErrorMessage(e, 'Yüklenemedi. Tekrar dene.'))),
       data: (friends) {
         if (friends.isEmpty) {
           return const Center(
@@ -103,7 +104,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
 
     return requestsAsync.when(
       loading: () => const PbLoading(message: 'Yükleniyor...'),
-      error: (e, _) => Center(child: Text('Hata: $e')),
+      error: (e, _) => Center(child: Text(userErrorMessage(e, 'Yüklenemedi. Tekrar dene.'))),
       data: (requests) {
         if (requests.isEmpty) {
           return const Center(
@@ -233,11 +234,24 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e')),
+          SnackBar(
+            content: Text(
+              _sendRequestErrors[e is ApiException ? e.message : null] ??
+                  userErrorMessage(e, 'İstek gönderilemedi. Tekrar dene.'),
+            ),
+          ),
         );
       }
     }
   }
+
+  /// The API's English `POST /friends/request` errors, in Turkish.
+  static const _sendRequestErrors = {
+    'User not found': 'Bu kullanıcı adıyla kimse bulunamadı.',
+    'Cannot send friend request to yourself': 'Kendine istek gönderemezsin.',
+    'Already friends': 'Zaten arkadaşsınız.',
+    'Friend request already exists': 'Bu kişiyle zaten bekleyen bir istek var.',
+  };
 
   Future<void> _respondToRequest(String id, String action) async {
     try {
@@ -249,7 +263,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e')),
+          SnackBar(
+            content: Text(userErrorMessage(e, 'İşlem başarısız. Tekrar dene.')),
+          ),
         );
       }
     }
@@ -282,7 +298,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Hata: $e')),
+            SnackBar(
+              content: Text(userErrorMessage(e, 'Arkadaş silinemedi. Tekrar dene.')),
+            ),
           );
         }
       }

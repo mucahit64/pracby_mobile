@@ -61,7 +61,7 @@ class StoreScreen extends ConsumerWidget {
           if (isGuest) ...[_GuestBanner(acorns), const SizedBox(height: 12)],
           itemsAsync.when(
             loading: () => const StoreHint('Yükleniyor…'),
-            error: (error, _) => StoreHint('Hata: $error'),
+            error: (error, _) => StoreHint(userErrorMessage(error, 'Yüklenemedi. Tekrar dene.')),
             data: (_) => StoreList(
               children: [
                 for (final item in regularItems)
@@ -183,7 +183,11 @@ class StoreScreen extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Hata: $e'),
+              content: Text(
+                e is ApiException && e.message == 'Insufficient acorn balance'
+                    ? 'Yetersiz palamut.'
+                    : userErrorMessage(e, 'Satın alma başarısız. Tekrar dene.'),
+              ),
               backgroundColor: AppColors.error,
             ),
           );
@@ -463,7 +467,7 @@ class _UnlimitedEnergyBanner extends StatelessWidget {
   }
 }
 
-/// "Buy Acorn": acorn packages in two columns. Payment isn't built yet;
+/// "Palamut Satın Al": acorn packages in two columns. Payment isn't built yet;
 /// the web shows the same notice.
 class _AcornPackagesSection extends ConsumerWidget {
   const _AcornPackagesSection();
@@ -473,7 +477,7 @@ class _AcornPackagesSection extends ConsumerWidget {
     final packages = ref.watch(acornPackagesProvider).valueOrNull ?? [];
     return StoreSection(
       icon: PbIcons.acorn,
-      title: 'Buy Acorn',
+      title: 'Palamut Satın Al',
       children: [
         StoreList(
           gap: 12,

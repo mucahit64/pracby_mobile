@@ -343,7 +343,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final coursesAsync = ref.watch(coursesProvider);
     return coursesAsync.when(
       loading: () => const PbLoading(),
-      error: (e, _) => Center(child: Text('Hata: $e')),
+      error: (e, _) => Center(child: Text(userErrorMessage(e, 'Yüklenemedi. Tekrar dene.'))),
       data: (courses) => _buildCourseRoadmap(context, courses),
     );
   }

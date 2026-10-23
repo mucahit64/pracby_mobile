@@ -5,6 +5,7 @@ import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_button.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pracby_mobile/features/guest/guest_provider.dart';
 import 'package:pracby_mobile/features/profile/data/user_repository.dart';
 
 /// Username, email and password, like the web `/profile/edit` (docs 11.5).
@@ -259,6 +260,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       builder: (_) => const _DeleteAccountDialog(),
     );
     if (deleted != true || !mounted) return;
+    // Like the web: guest progress left from a failed merge must not end up in
+    // the next account created on this device.
+    ref.read(guestProvider.notifier).clear();
     await ref.read(authStateProvider.notifier).logout();
   }
 

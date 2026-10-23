@@ -20,3 +20,9 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 }
+
+/// What to show the user for [error]: the Turkish network message when the
+/// request never reached the server, otherwise [fallback]. The API's own
+/// messages are mostly English, so they aren't shown as they are.
+String userErrorMessage(Object error, String fallback) =>
+    error is ApiException && error.isNetworkError ? error.message : fallback;

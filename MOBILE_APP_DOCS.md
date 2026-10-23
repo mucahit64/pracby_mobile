@@ -1215,11 +1215,11 @@ Her konuda lesson adımları (her biri 1 test, yaklaşık 10 soru) ve aralarda 1
 
 **Validasyon (Zod) hatası:** Alan hataları `errors.properties.<alan>.errors[]` altındadır.
 ```json
-{ "errors": { "errors": [], "properties": { "password": { "errors": ["Password must be at least 6 characters"] } } } }
+{ "errors": { "errors": [], "properties": { "password": { "errors": ["Şifre en az 6 karakter olmalı"] } } } }
 ```
-> Web istemcisi bu formatı yanlış okuyor (`_errors` arıyor). Mobilde yukarıdaki yol kullanılmalıdır.
+Validasyon mesajları Türkçedir ve alan altında gösterilebilir: kullanıcının yazdığı alanların (kayıt, giriş, profil, arkadaş) mesajları şemada yazılıdır, diğerleri Zod'un Türkçe varsayılanlarıdır (ör. "Geçersiz değer: …").
 
-Hata mesajları Türkçe ve İngilizce karışıktır. Kullanıcıya gösterilecek metinler HTTP koduna ve endpoint'e göre istemcide eşlenmelidir.
+İş kuralı hataları (`{ "error": … }`) ise Türkçe ve İngilizce karışıktır (ör. `Insufficient acorn balance`). Bunları olduğu gibi göstermeyin; HTTP koduna ve endpoint'e göre istemcide Türkçe metne eşleyin. Bağlantı hatası dışında genel bir metin için `userErrorMessage(error, fallback)` (`core/api/api_exception.dart`) kullanılır.
 
 ---
 

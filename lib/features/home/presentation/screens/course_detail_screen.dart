@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/home/presentation/providers/course_provider.dart';
 
@@ -16,7 +17,7 @@ class CourseDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Kurs Detayı')),
       body: courseAsync.when(
         loading: () => const PbLoading(),
-        error: (error, _) => Center(child: Text('Hata: $error')),
+        error: (error, _) => Center(child: Text(userErrorMessage(error, 'Yüklenemedi. Tekrar dene.'))),
         data: (course) => Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

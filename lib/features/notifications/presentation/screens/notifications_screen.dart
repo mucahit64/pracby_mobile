@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_loading.dart';
 import 'package:pracby_mobile/features/notifications/data/notification_repository.dart';
@@ -31,7 +32,7 @@ class NotificationsScreen extends ConsumerWidget {
       ),
       body: notificationsAsync.when(
         loading: () => const PbLoading(),
-        error: (error, _) => Center(child: Text('Hata: $error')),
+        error: (error, _) => Center(child: Text(userErrorMessage(error, 'Yüklenemedi. Tekrar dene.'))),
         data: (notifications) {
           if (notifications.isEmpty) {
             return const Center(

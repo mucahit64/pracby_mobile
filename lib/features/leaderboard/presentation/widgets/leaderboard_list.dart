@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:pracby_mobile/core/api/api_exception.dart';
 import 'package:pracby_mobile/core/theme/app_colors.dart';
 import 'package:pracby_mobile/core/widgets/pb_icon.dart';
 import 'package:pracby_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -38,7 +39,7 @@ class LeaderboardList extends ConsumerWidget {
 
     final content = entriesAsync.when<Widget>(
       loading: () => const _Message('Yükleniyor…'),
-      error: (error, _) => _Message('Hata: $error'),
+      error: (error, _) => _Message(userErrorMessage(error, 'Yüklenemedi. Tekrar dene.')),
       data: (entries) {
         if (entries.isEmpty) {
           return const _Message('Bu ligde henüz kimse yok.');

@@ -242,7 +242,7 @@ class QuizResultScreen extends StatelessWidget {
                 const VerticalDivider(width: 1, color: AppColors.grey100),
                 _stat(
                   '+${state.acornEarned}',
-                  'ACORN',
+                  'PALAMUT',
                   const Color(0xFFD97706),
                 ),
               ],

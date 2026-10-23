@@ -276,7 +276,7 @@ class _StatGrid extends StatelessWidget {
       _StatCard(PbIcons.fire, '${stats.displayStreak}', 'Güncel Seri'),
       _StatCard(PbIcons.trophy, '${stats.maxStreak}', 'En Uzun Seri'),
       _StatCard(PbIcons.target, '${stats.quizzesDone}', 'Quiz'),
-      _StatCard(PbIcons.acorn, number.format(acorns), 'Acorn'),
+      _StatCard(PbIcons.acorn, number.format(acorns), 'Palamut'),
     ];
     return _Grid(columns: 2, children: cards);
   }
